@@ -7,8 +7,8 @@ final class ThemeManagerTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        defaults = UserDefaults(suiteName: #file)!
-        defaults.removePersistentDomain(forName: #file)
+        defaults = UserDefaults(suiteName: "ThemeManagerTests")!
+        defaults.removePersistentDomain(forName: "ThemeManagerTests")
         manager = ThemeManager(defaults: defaults)
     }
 
