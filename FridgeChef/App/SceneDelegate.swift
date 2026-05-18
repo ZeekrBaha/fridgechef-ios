@@ -7,8 +7,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                willConnectTo session: UISceneSession,
                options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        let deps: Dependencies = ProcessInfo.processInfo.arguments.contains("--ui-test-stub")
+            ? Dependencies.makeUITestStubs()
+            : Dependencies.makeLive()
+        let root = RootTabBarController()
+        root.deps = deps
         let window = UIWindow(windowScene: windowScene)
-        window.rootViewController = RootTabBarController()
+        window.rootViewController = root
         window.makeKeyAndVisible()
         self.window = window
         ThemeManager.shared.apply()

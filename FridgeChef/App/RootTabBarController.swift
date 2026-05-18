@@ -27,39 +27,3 @@ final class RootTabBarController: UITabBarController {
     }
 }
 
-@MainActor
-struct Dependencies {
-    let openAIClient: OpenAIClientProtocol
-    let recipeStore: RecipeStoreProtocol
-
-    static func makeLive() -> Dependencies {
-        let stack = CoreDataStack()
-        let store = RecipeStore(stack: stack)
-        let apiKey = (try? APIKeyProvider.get()) ?? ""
-        let client = OpenAIClient(apiKey: apiKey, session: .shared)
-        return Dependencies(openAIClient: client, recipeStore: store)
-    }
-}
-
-private final class PlaceholderVC: UIViewController {
-    init(title: String) {
-        super.init(nibName: nil, bundle: nil)
-        self.title = title
-    }
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .paper
-        let label = UILabel()
-        label.text = title
-        label.font = Typography.fraunces(34, weight: .bold)
-        label.textColor = .ink
-        label.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-        ])
-    }
-}
