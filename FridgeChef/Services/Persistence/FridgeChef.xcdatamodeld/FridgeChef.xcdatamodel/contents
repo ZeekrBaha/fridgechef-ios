@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22000" systemVersion="23A344" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="RecipeBatchEntity" representedClassName="RecipeBatchEntity" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="createdAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="inputIngredientsJSON" optional="NO" attributeType="String" defaultValueString="[]"/>
+        <attribute name="inputImageThumbnailJPEG" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
+        <relationship name="recipes" optional="YES" toMany="YES" deletionRule="Cascade" ordered="YES" destinationEntity="RecipeEntity" inverseName="batch" inverseEntity="RecipeEntity"/>
+    </entity>
+    <entity name="RecipeEntity" representedClassName="RecipeEntity" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="NO" attributeType="String" defaultValueString=""/>
+        <attribute name="recipeDescription" optional="NO" attributeType="String" defaultValueString=""/>
+        <attribute name="ingredientsJSON" optional="NO" attributeType="String" defaultValueString="[]"/>
+        <attribute name="stepsJSON" optional="NO" attributeType="String" defaultValueString="[]"/>
+        <attribute name="estimatedTime" optional="NO" attributeType="String" defaultValueString=""/>
+        <attribute name="order" optional="NO" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="batch" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="RecipeBatchEntity" inverseName="recipes" inverseEntity="RecipeBatchEntity"/>
+    </entity>
+</model>
