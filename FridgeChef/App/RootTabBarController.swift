@@ -13,7 +13,9 @@ final class RootTabBarController: UITabBarController {
         let homeNav = UINavigationController(rootViewController: homeVC)
         homeNav.tabBarItem = UITabBarItem(title: "Home", image: UIImage(systemName: "house"), tag: 0)
 
-        let recipesNav = UINavigationController(rootViewController: PlaceholderVC(title: "Recipes"))
+        let recipesVM = RecipesVM(store: deps.recipeStore)
+        let recipesVC = RecipesVC(vm: recipesVM)
+        let recipesNav = UINavigationController(rootViewController: recipesVC)
         recipesNav.tabBarItem = UITabBarItem(title: "Recipes", image: UIImage(systemName: "book"), tag: 1)
 
         let settingsNav = UINavigationController(rootViewController: PlaceholderVC(title: "Settings"))
