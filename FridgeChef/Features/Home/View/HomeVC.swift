@@ -159,8 +159,9 @@ final class HomeVC: UIViewController, PHPickerViewControllerDelegate, UIImagePic
             showOverlay()
         case .loaded(let batch):
             hideOverlay()
-            // Phase 6 will push RecipeBatchVC here.
-            print("loaded batch: \(batch.recipes.count) recipes")
+            let vc = RecipeBatchVC(vm: RecipeBatchVM(batch: batch))
+            navigationController?.pushViewController(vc, animated: true)
+            NotificationCenter.default.post(name: .recipesDidChange, object: nil)
         case .error(let msg):
             hideOverlay()
             let alert = UIAlertController(title: "Couldn't generate", message: msg, preferredStyle: .alert)
