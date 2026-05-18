@@ -1,10 +1,16 @@
 import UIKit
 
 final class RootTabBarController: UITabBarController {
+
+    var deps: Dependencies?
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        let deps = self.deps ?? Dependencies.makeLive()
 
-        let homeNav = UINavigationController(rootViewController: PlaceholderVC(title: "Home"))
+        let homeVM = HomeVM(client: deps.openAIClient, store: deps.recipeStore)
+        let homeVC = HomeVC(vm: homeVM)
+        let homeNav = UINavigationController(rootViewController: homeVC)
         homeNav.tabBarItem = UITabBarItem(title: "Home", image: UIImage(systemName: "house"), tag: 0)
 
         let recipesNav = UINavigationController(rootViewController: PlaceholderVC(title: "Recipes"))
@@ -17,6 +23,20 @@ final class RootTabBarController: UITabBarController {
     }
 }
 
+@MainActor
+struct Dependencies {
+    let openAIClient: OpenAIClientProtocol
+    let recipeStore: RecipeStoreProtocol
+
+    static func makeLive() -> Dependencies {
+        let stack = CoreDataStack()
+        let store = RecipeStore(stack: stack)
+        let apiKey = (try? APIKeyProvider.get()) ?? ""
+        let client = OpenAIClient(apiKey: apiKey, session: .shared)
+        return Dependencies(openAIClient: client, recipeStore: store)
+    }
+}
+
 private final class PlaceholderVC: UIViewController {
     init(title: String) {
         super.init(nibName: nil, bundle: nil)
@@ -26,10 +46,11 @@ private final class PlaceholderVC: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .paper
         let label = UILabel()
         label.text = title
-        label.font = .preferredFont(forTextStyle: .largeTitle)
+        label.font = Typography.fraunces(34, weight: .bold)
+        label.textColor = .ink
         label.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(label)
         NSLayoutConstraint.activate([
