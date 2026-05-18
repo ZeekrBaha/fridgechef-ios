@@ -243,7 +243,3 @@ A `.git/hooks/pre-commit` script blocks any commit whose staged diff contains an
 ## License
 
 Personal project — no license. Don't redistribute the bundled `OPENAI_API_KEY` if you fork.
-
----
-
-🤖 Built collaboratively with [Claude Code](https://claude.com/claude-code).
