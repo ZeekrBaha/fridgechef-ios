@@ -51,5 +51,12 @@
     <string>FridgeChef needs photo access to read images of your ingredients.</string>
     <key>OPENAI_API_KEY</key>
     <string></string>
+    <key>UIAppFonts</key>
+    <array>
+        <string>Fraunces72pt-Regular.ttf</string>
+        <string>Fraunces72pt-Bold.ttf</string>
+        <string>DMSans-Regular.ttf</string>
+        <string>DMSans-Medium.ttf</string>
+    </array>
 </dict>
 </plist>

@@ -23,6 +23,11 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: FridgeChef
+        excludes:
+          - "DesignSystem/Fonts/**"
+      - path: FridgeChef/DesignSystem/Fonts
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.baha.fridgechef
