@@ -5,10 +5,14 @@
 iOS app that turns a list of ingredients — typed as chips or extracted from a photo — into 3 recipe suggestions via GPT-4o Vision. Every batch is saved to a local recipe history. UIKit + MVVM + Core Data, iOS 17+, zero third-party Swift dependencies.
 
 <p align="center">
-  <img src="docs/screenshots/home-light.png" alt="FridgeChef Home (light)" width="280" />
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/home-dark.png" alt="FridgeChef Home (dark)" width="280" />
+  <img src="docs/screenshots/02-home-with-chips.jpg" alt="FridgeChef Home with chips (light)" width="260" />
+  &nbsp;
+  <img src="docs/screenshots/04-recipe-batch.jpg" alt="3 recipes returned by GPT-4o Vision" width="260" />
+  &nbsp;
+  <img src="docs/screenshots/10-home-dark.jpg" alt="FridgeChef Home (dark)" width="260" />
 </p>
+
+<p align="center"><sub>Add chips → snap a fridge photo → 3 real recipes in ~10 seconds.</sub></p>
 
 ---
 
@@ -21,6 +25,28 @@ iOS app that turns a list of ingredients — typed as chips or extracted from a 
 - **Recipe detail** — full recipe view with ingredients and numbered steps
 - **Theme** — Follow System / Light / Dark, persisted in `UserDefaults`
 - **Single-key bootstrap** — no setup screen; OpenAI key is read at build time from a sibling project's `.env` and baked into the built `Info.plist`
+
+## Walkthrough
+
+Real end-to-end run captured from the iOS Simulator. The photo is a fridge interior pulled from Unsplash; GPT-4o Vision identified the vegetables and returned three runnable recipes.
+
+| Step | Light | What's happening |
+|---|---|---|
+| Empty Home | <img src="docs/screenshots/01-home-empty.jpg" width="200" /> | First launch — empty chip area, Suggest button disabled |
+| Chips added | <img src="docs/screenshots/02-home-with-chips.jpg" width="200" /> | Three ingredients added; Suggest button now sage-active |
+| Loading | <img src="docs/screenshots/03-home-loading.jpg" width="200" /> | Full-screen overlay with Fraunces spinner — "Reading your kitchen…" |
+| Recipe batch | <img src="docs/screenshots/04-recipe-batch.jpg" width="200" /> | GPT-4o returned 3 cards (Garden Salad / Stir-Fry / Squash Soup) |
+| Recipe detail | <img src="docs/screenshots/05-recipe-detail.jpg" width="200" /> | Tap a card → full ingredients + numbered steps |
+| Recipes history | <img src="docs/screenshots/06-recipes-history.jpg" width="200" /> | Recipes tab — batch grouped under TODAY |
+| Settings | <img src="docs/screenshots/07-settings.jpg" width="200" /> | Theme picker, key status (✓ injected), model, version |
+
+### Dark mode
+
+System tokens swap automatically via `UIColor` dynamic providers — no per-screen dark layouts.
+
+| Settings (Dark) | RecipeBatch (Dark) | Home (Dark) |
+|---|---|---|
+| <img src="docs/screenshots/08-settings-dark.jpg" width="220" /> | <img src="docs/screenshots/09-recipe-batch-dark.jpg" width="220" /> | <img src="docs/screenshots/10-home-dark.jpg" width="220" /> |
 
 ## Architecture
 
