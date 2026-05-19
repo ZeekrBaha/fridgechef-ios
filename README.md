@@ -292,6 +292,10 @@ A `.git/hooks/pre-commit` script blocks any commit whose staged diff contains an
 
 ## Design + plan docs
 
+**Cross-platform porting**
+
+- 🧭 **[Cross-Platform Spec](docs/CROSS_PLATFORM_SPEC.md)** — single source of truth for rebuilding FridgeChef on Android (Compose), Flutter, React Native, or .NET MAUI. Every screen, dimension, color, font, icon, prompt, network call, and persistence schema documented so a port can be built from this doc alone.
+
 **v1 (chip-based Home → 3 recipes)**
 
 - 📐 **[v1 Design spec](docs/superpowers/specs/2026-05-18-fridgechef-ios-v1-design.md)** — the full architectural decisions, screen mocks, error handling, testing strategy
