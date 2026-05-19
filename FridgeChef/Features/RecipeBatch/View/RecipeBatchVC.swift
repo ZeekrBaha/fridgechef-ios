@@ -65,6 +65,8 @@ final class RecipeBatchVC: UIViewController, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         let recipe = vm.recipes[indexPath.item]
-        navigationController?.pushViewController(RecipeDetailVC(vm: RecipeDetailVM(recipe: recipe)), animated: true)
+        guard let store = vm.store else { return }
+        let detailVM = RecipeDetailVM(recipe: recipe, batchId: vm.batch.id, store: store)
+        navigationController?.pushViewController(RecipeDetailVC(vm: detailVM), animated: true)
     }
 }

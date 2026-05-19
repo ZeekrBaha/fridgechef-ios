@@ -5,7 +5,12 @@ final class RecipeBatchVM {
     let batch: RecipeBatch
     var recipes: [Recipe] { batch.recipes }
 
-    init(batch: RecipeBatch, store: RecipeStoreProtocol? = nil) { self.batch = batch }
+    let store: RecipeStoreProtocol?
+
+    init(batch: RecipeBatch, store: RecipeStoreProtocol? = nil) {
+        self.batch = batch
+        self.store = store
+    }
 
     var headerDateString: String {
         let fmt = DateFormatter()
