@@ -28,7 +28,16 @@ iOS app that turns a list of ingredients — typed as chips or extracted from a 
 
 ## Walkthrough
 
-Real end-to-end run captured from the iOS Simulator. The photo is a fridge interior pulled from Unsplash; GPT-4o Vision identified the vegetables and returned three runnable recipes.
+Real end-to-end run captured from the iOS Simulator. The input photo (below) is a produce fridge from Unsplash, injected into the simulator's Photos library via `xcrun simctl addmedia`. GPT-4o Vision then identified the visible vegetables and returned three runnable recipes — Colorful Garden Salad, Zucchini & Broccoli Stir-Fry, Butternut Squash Soup.
+
+### Input photo (the one selected from the picker)
+
+<p align="center">
+  <img src="docs/screenshots/00-input-photo.jpg" alt="Produce fridge photo sent to GPT-4o Vision" width="520" />
+</p>
+<p align="center"><sub>Photo by <a href="https://unsplash.com/photos/photo-1542838132-92c53300491e">Unsplash</a> · free to use, no attribution required (credit shown anyway).</sub></p>
+
+### End-to-end flow
 
 | Step | Light | What's happening |
 |---|---|---|
