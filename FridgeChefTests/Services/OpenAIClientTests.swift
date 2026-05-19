@@ -126,6 +126,87 @@ final class OpenAIClientTests: XCTestCase {
         XCTAssertTrue(urlString.contains(fakeJPEG.base64EncodedString()))
     }
 
+    // MARK: - dish name variant
+
+    func test_dishName_sendsCorrectRequest_andDecodesRecipes() async throws {
+        let recipes = (0..<3).map { i in
+            ["title": "Var \(i)", "description": "d", "ingredients": ["a"], "steps": ["s"], "estimatedTime": "10 min"]
+        }
+        let envelope: [String: Any] = [
+            "choices": [
+                ["message": ["content": String(data: try JSONSerialization.data(withJSONObject: ["recipes": recipes]), encoding: .utf8)!]]
+            ]
+        ]
+        StubURLProtocol.responder = { request in
+            let bodyData = request.httpBodyStream.flatMap(Data.from(stream:)) ?? Data()
+            let body = try! JSONSerialization.jsonObject(with: bodyData) as! [String: Any]
+            let messages = body["messages"] as! [[String: Any]]
+            XCTAssertEqual(messages[0]["role"] as? String, "system")
+            XCTAssertTrue((messages[0]["content"] as? String)?.contains("variation") == true)
+            XCTAssertEqual(messages[1]["role"] as? String, "user")
+            XCTAssertEqual(messages[1]["content"] as? String, "Dish: ramen")
+            let data = try! JSONSerialization.data(withJSONObject: envelope)
+            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+        }
+        let client = makeClient()
+
+        let result = try await client.suggestRecipes(dishName: "ramen")
+
+        XCTAssertEqual(result.count, 3)
+        XCTAssertEqual(result[0].title, "Var 0")
+    }
+
+    func test_forMeal_includesMealAndStyleInPrompt() async throws {
+        let recipes = (0..<3).map { i in
+            ["title": "R\(i)", "description": "d", "ingredients": ["a"], "steps": ["s"], "estimatedTime": "20 min"]
+        }
+        let envelope: [String: Any] = [
+            "choices": [
+                ["message": ["content": String(data: try JSONSerialization.data(withJSONObject: ["recipes": recipes]), encoding: .utf8)!]]
+            ]
+        ]
+        StubURLProtocol.responder = { request in
+            let bodyData = request.httpBodyStream.flatMap(Data.from(stream:)) ?? Data()
+            let body = try! JSONSerialization.jsonObject(with: bodyData) as! [String: Any]
+            let messages = body["messages"] as! [[String: Any]]
+            let system = messages[0]["content"] as! String
+            XCTAssertTrue(system.lowercased().contains("dinner"), "system prompt should mention meal type")
+            XCTAssertTrue(system.contains("comforting"), "system prompt should include style fragment")
+            let data = try! JSONSerialization.data(withJSONObject: envelope)
+            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+        }
+        let client = makeClient()
+
+        let result = try await client.suggestRecipes(forMeal: .dinner, style: .comfort)
+        XCTAssertEqual(result.count, 3)
+    }
+
+    func test_dailyPicks_decodesThreeTitles() async throws {
+        let picksJSON: [String: Any] = [
+            "breakfast": "Avocado toast",
+            "lunch": "Pesto pasta",
+            "dinner": "Miso salmon"
+        ]
+        let envelope: [String: Any] = [
+            "choices": [
+                ["message": ["content": String(data: try JSONSerialization.data(withJSONObject: picksJSON), encoding: .utf8)!]]
+            ]
+        ]
+        StubURLProtocol.responder = { request in
+            let bodyData = request.httpBodyStream.flatMap(Data.from(stream:)) ?? Data()
+            let body = try! JSONSerialization.jsonObject(with: bodyData) as! [String: Any]
+            XCTAssertEqual(body["model"] as? String, "gpt-4o-mini")
+            let data = try! JSONSerialization.data(withJSONObject: envelope)
+            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, data)
+        }
+        let client = makeClient()
+
+        let picks = try await client.dailyPicks()
+        XCTAssertEqual(picks.breakfast, "Avocado toast")
+        XCTAssertEqual(picks.lunch, "Pesto pasta")
+        XCTAssertEqual(picks.dinner, "Miso salmon")
+    }
+
     // MARK: - fixtures
 
     static let okResponse = HTTPURLResponse(

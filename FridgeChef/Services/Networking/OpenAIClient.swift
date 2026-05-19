@@ -3,6 +3,9 @@ import Foundation
 protocol OpenAIClientProtocol {
     func suggestRecipes(ingredients: [String]) async throws -> [Recipe]
     func suggestRecipes(imageJPEG: Data) async throws -> [Recipe]
+    func suggestRecipes(dishName: String) async throws -> [Recipe]
+    func suggestRecipes(forMeal meal: MealType, style: RecipeStyle?) async throws -> [Recipe]
+    func dailyPicks() async throws -> DailyPicks
 }
 
 struct OpenAIClient: OpenAIClientProtocol {
@@ -39,6 +42,86 @@ struct OpenAIClient: OpenAIClientProtocol {
             "response_format": Self.responseFormat
         ]
         return try await send(body: body)
+    }
+
+    func suggestRecipes(dishName: String) async throws -> [Recipe] {
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [
+                ["role": "system", "content": Prompts.dishSystemPrompt],
+                ["role": "user", "content": "Dish: \(dishName)"]
+            ],
+            "response_format": Self.responseFormat
+        ]
+        return try await send(body: body)
+    }
+
+    func suggestRecipes(forMeal meal: MealType, style: RecipeStyle?) async throws -> [Recipe] {
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [
+                ["role": "system", "content": Prompts.mealSystemPrompt(meal: meal, style: style)],
+                ["role": "user", "content": "Suggest \(meal.displayName.lowercased()) recipes."]
+            ],
+            "response_format": Self.responseFormat
+        ]
+        return try await send(body: body)
+    }
+
+    func dailyPicks() async throws -> DailyPicks {
+        let body: [String: Any] = [
+            "model": "gpt-4o-mini",
+            "messages": [
+                ["role": "system", "content": Prompts.dailyPicksSystemPrompt],
+                ["role": "user", "content": "Pick today's recipes."]
+            ],
+            "response_format": Self.dailyPicksResponseFormat
+        ]
+
+        // Custom send path — different response shape than [Recipe], can't reuse send(body:).
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await session.data(for: req)
+        } catch let urlErr as URLError {
+            throw OpenAIError.network(urlErr.localizedDescription)
+        }
+        guard let http = response as? HTTPURLResponse else { throw OpenAIError.invalidResponse }
+        switch http.statusCode {
+        case 200..<300: break
+        case 401:       throw OpenAIError.unauthorized
+        case 429:       throw OpenAIError.rateLimited
+        default:        throw OpenAIError.server(http.statusCode)
+        }
+
+        struct Envelope: Decodable {
+            struct Choice: Decodable { let message: Message }
+            struct Message: Decodable { let content: String }
+            let choices: [Choice]
+        }
+        struct PicksContent: Decodable {
+            let breakfast: String
+            let lunch: String
+            let dinner: String
+        }
+
+        let envelope = try JSONDecoder().decode(Envelope.self, from: data)
+        guard let contentString = envelope.choices.first?.message.content,
+              let contentData = contentString.data(using: .utf8) else {
+            throw OpenAIError.invalidResponse
+        }
+        let parsed = try JSONDecoder().decode(PicksContent.self, from: contentData)
+        return DailyPicks(
+            breakfast: parsed.breakfast,
+            lunch: parsed.lunch,
+            dinner: parsed.dinner,
+            savedAt: Date()
+        )
     }
 
     private func send(body: [String: Any]) async throws -> [Recipe] {
@@ -109,6 +192,24 @@ struct OpenAIClient: OpenAIClientProtocol {
                    estimatedTime: $0.estimatedTime)
         }
     }
+
+    private static let dailyPicksResponseFormat: [String: Any] = [
+        "type": "json_schema",
+        "json_schema": [
+            "name": "daily_picks_response",
+            "strict": true,
+            "schema": [
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["breakfast", "lunch", "dinner"],
+                "properties": [
+                    "breakfast": ["type": "string"],
+                    "lunch":     ["type": "string"],
+                    "dinner":    ["type": "string"]
+                ]
+            ]
+        ]
+    ]
 
     private static let responseFormat: [String: Any] = [
         "type": "json_schema",

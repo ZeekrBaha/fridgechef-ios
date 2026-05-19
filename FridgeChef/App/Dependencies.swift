@@ -34,6 +34,16 @@ private final class UITestStubClient: OpenAIClientProtocol {
     init(recipes: [Recipe]) { self.recipes = recipes }
     func suggestRecipes(ingredients: [String]) async throws -> [Recipe] { recipes }
     func suggestRecipes(imageJPEG: Data) async throws -> [Recipe] { recipes }
+    func suggestRecipes(dishName: String) async throws -> [Recipe] { recipes }
+    func suggestRecipes(forMeal meal: MealType, style: RecipeStyle?) async throws -> [Recipe] { recipes }
+    func dailyPicks() async throws -> DailyPicks {
+        DailyPicks(
+            breakfast: "Stubbed Toast",
+            lunch: "Stubbed Salad",
+            dinner: "Stubbed Curry",
+            savedAt: Date()
+        )
+    }
 }
 
 private final class UITestStubStore: RecipeStoreProtocol {
