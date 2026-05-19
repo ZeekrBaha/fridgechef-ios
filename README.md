@@ -1,25 +1,29 @@
 # FridgeChef
 
-> Photograph what's in your fridge, get 3 recipes you can actually cook.
+> Type a dish, pick a meal idea, or snap your fridge — get 3 recipes you can actually cook.
 
-iOS app that turns a list of ingredients — typed as chips or extracted from a photo — into 3 recipe suggestions via GPT-4o Vision. Every batch is saved to a local recipe history. UIKit + MVVM + Core Data, iOS 17+, zero third-party Swift dependencies.
+iOS app with a recipe catalog Home tab: a text field for any dish name, four idea cards (Breakfast / Lunch / Dinner / **From my fridge**), and a magic surprise-me button. Each path returns 3 GPT-4o recipes that persist to a local Core Data history. The fridge-photo path uses GPT-4o Vision to read what's in the picture. UIKit + MVVM + Core Data, iOS 17+, zero third-party Swift dependencies.
 
 <p align="center">
-  <img src="docs/screenshots/02-home-with-chips.jpg" alt="FridgeChef Home with chips (light)" width="260" />
+  <img src="docs/screenshots/01-home-light.jpg" alt="FridgeChef Recipe Catalog (light)" width="260" />
   &nbsp;
-  <img src="docs/screenshots/04-recipe-batch.jpg" alt="3 recipes returned by GPT-4o Vision" width="260" />
+  <img src="docs/screenshots/04-recipe-batch.jpg" alt="3 recipes returned by GPT-4o" width="260" />
   &nbsp;
-  <img src="docs/screenshots/10-home-dark.jpg" alt="FridgeChef Home (dark)" width="260" />
+  <img src="docs/screenshots/10-home-dark.jpg" alt="FridgeChef Recipe Catalog (dark)" width="260" />
 </p>
 
-<p align="center"><sub>Add chips → snap a fridge photo → 3 real recipes in ~10 seconds.</sub></p>
+<p align="center"><sub>Pick a meal idea, type a dish, or snap your fridge — 3 real recipes in ~10 seconds.</sub></p>
 
 ---
 
 ## Features
 
-- **Chip-based ingredient input** — add ingredients one at a time, lowercased and deduped automatically
-- **Photo → ingredients → recipes** — take a photo or pick from the library, GPT-4o Vision reads it and suggests recipes in one round-trip
+- **Recipe Catalog Home** — five entry points on a single screen:
+  - text field → type any dish name, get 3 variations
+  - **Breakfast / Lunch / Dinner** idea cards → 3 recipes for that meal
+  - **From my fridge** card → snap or pick a photo, GPT-4o Vision reads it and suggests recipes
+  - **Magic** button → a totally random surprise dish
+- **Today's pick on every meal card** — a separate `gpt-4o-mini` daily call seeds each card with a fresh dish title once per calendar day (cached in `UserDefaults`, no spinner on subsequent launches)
 - **Structured outputs** — uses OpenAI's `response_format: json_schema` so the model returns valid JSON every time, no string parsing
 - **Recipe history** — every generated batch persists to Core Data, browsable in a Recipes tab grouped by relative date (Today / Yesterday / This Week / by month)
 - **Recipe detail** — full recipe view with ingredients and numbered steps
@@ -28,23 +32,27 @@ iOS app that turns a list of ingredients — typed as chips or extracted from a 
 
 ## Walkthrough
 
-Real end-to-end run captured from the iOS Simulator. The input photo (below) is a produce fridge from Unsplash, injected into the simulator's Photos library via `xcrun simctl addmedia`. GPT-4o Vision then identified the visible vegetables and returned three runnable recipes — Colorful Garden Salad, Zucchini & Broccoli Stir-Fry, Butternut Squash Soup.
+Real end-to-end run captured from the iOS Simulator. The fridge-photo path uses an Unsplash produce shot injected into the simulator's Photos library via `xcrun simctl addmedia`; GPT-4o Vision identifies the visible vegetables and returns three runnable recipes (in the captured run: Colorful Garden Salad, Zucchini & Broccoli Stir-Fry, Butternut Squash Soup).
 
-### Input photo (the one selected from the picker)
+### Input photo (used by the "From my fridge" card)
 
 <p align="center">
   <img src="docs/screenshots/00-input-photo.jpg" alt="Produce fridge photo sent to GPT-4o Vision" width="520" />
 </p>
 <p align="center"><sub>Photo by <a href="https://unsplash.com/photos/photo-1542838132-92c53300491e">Unsplash</a> · free to use, no attribution required (credit shown anyway).</sub></p>
 
-### End-to-end flow
+### Recipe Catalog Home
 
-| Step | Light | What's happening |
+| Light | Dark | What's on screen |
 |---|---|---|
-| Empty Home | <img src="docs/screenshots/01-home-empty.jpg" width="200" /> | First launch — empty chip area, Suggest button disabled |
-| Chips added | <img src="docs/screenshots/02-home-with-chips.jpg" width="200" /> | Three ingredients added; Suggest button now sage-active |
-| Loading | <img src="docs/screenshots/03-home-loading.jpg" width="200" /> | Full-screen overlay with Fraunces spinner — "Reading your kitchen…" |
-| Recipe batch | <img src="docs/screenshots/04-recipe-batch.jpg" width="200" /> | GPT-4o returned 3 cards (Garden Salad / Stir-Fry / Squash Soup) |
+| <img src="docs/screenshots/01-home-light.jpg" width="220" /> | <img src="docs/screenshots/10-home-dark.jpg" width="220" /> | Text field ("How to cook…") + 2×2 grid: Breakfast / Lunch / Dinner / From my fridge. Each meal card shows "Today: …" — a fresh daily pick from `gpt-4o-mini`. The fridge card prompts "Snap a photo". Below: a circular magic surprise-me button. |
+
+### After picking a path
+
+| Step | Screenshot | What's happening |
+|---|---|---|
+| Loading | <img src="docs/screenshots/03-home-loading.jpg" width="200" /> | Inlined overlay with a spinner while GPT-4o responds |
+| Recipe batch | <img src="docs/screenshots/04-recipe-batch.jpg" width="200" /> | GPT-4o returned 3 cards |
 | Recipe detail | <img src="docs/screenshots/05-recipe-detail.jpg" width="200" /> | Tap a card → full ingredients + numbered steps |
 | Recipes history | <img src="docs/screenshots/06-recipes-history.jpg" width="200" /> | Recipes tab — batch grouped under TODAY |
 | Settings | <img src="docs/screenshots/07-settings.jpg" width="200" /> | Theme picker, key status (✓ injected), model, version |
@@ -57,64 +65,74 @@ System tokens swap automatically via `UIColor` dynamic providers — no per-scre
 |---|---|---|
 | <img src="docs/screenshots/08-settings-dark.jpg" width="220" /> | <img src="docs/screenshots/09-recipe-batch-dark.jpg" width="220" /> | <img src="docs/screenshots/10-home-dark.jpg" width="220" /> |
 
+> **"Where did the picture-attachment feature go?"** Still here — it's now the **From my fridge** card (bottom-right of the 2×2 grid). Tapping it opens the photo picker exactly like before; the image is sent to GPT-4o Vision via the same `suggestRecipes(imageJPEG:)` path. Nothing about the vision flow was removed in the catalog redesign.
+
 ## Architecture
 
 ```mermaid
 graph TB
     subgraph "FridgeChef (UIKit, MVVM + Combine, iOS 17+)"
-        HomeVC[HomeVC] <--> HomeVM[HomeVM]
+        CatalogVC[CatalogVC] <--> CatalogVM[CatalogVM]
         RecipeBatchVC[RecipeBatchVC] <--> RecipeBatchVM[RecipeBatchVM]
         RecipeDetailVC[RecipeDetailVC] <--> RecipeDetailVM[RecipeDetailVM]
         RecipesVC[RecipesVC] <--> RecipesVM[RecipesVM]
         SettingsVC[SettingsVC] <--> SettingsVM[SettingsVM]
 
-        HomeVM --> OpenAIClient
-        HomeVM --> RecipeStore
+        CatalogVM --> OpenAIClient
+        CatalogVM --> RecipeStore
+        CatalogVM --> DailyPicksService
+        DailyPicksService --> OpenAIClient
         RecipeBatchVM --> RecipeStore
         RecipesVM --> RecipeStore
         SettingsVM --> ThemeManager
         SettingsVM --> RecipeStore
         SettingsVM --> APIKeyProvider
 
-        HomeVC -. push .-> RecipeBatchVC
+        CatalogVC -. push .-> RecipeBatchVC
         RecipesVC -. push .-> RecipeBatchVC
         RecipeBatchVC -. push .-> RecipeDetailVC
 
-        OpenAIClient[OpenAIClient<br/>protocol]
+        OpenAIClient[OpenAIClient<br/>protocol<br/>dish / meal / image / surprise / dailyPicks]
         RecipeStore[RecipeStore<br/>protocol]
+        DailyPicksService[DailyPicksService<br/>UserDefaults cache,<br/>per-calendar-day]
         ThemeManager[ThemeManager<br/>UserDefaults]
         APIKeyProvider[APIKeyProvider<br/>Info.plist]
     end
 
-    OpenAIClient --> OpenAI[api.openai.com<br/>gpt-4o + json_schema]
+    OpenAIClient --> OpenAI[api.openai.com<br/>gpt-4o + gpt-4o-mini<br/>+ json_schema]
     RecipeStore --> CoreData[(Core Data<br/>RecipeBatchEntity<br/>→ RecipeEntity)]
     APIKeyProvider --> BuildScript[Run Script Phase<br/>inject-openai-key.sh<br/>reads ../youtube_pdf_reporter/.env]
 ```
 
-### Data flow — generate from chips
+### Data flow — tap a meal idea card
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant HomeVC
-    participant HomeVM
+    participant CatalogVC
+    participant CatalogVM
     participant OpenAIClient
     participant RecipeStore
     participant RecipeBatchVC
 
-    User->>HomeVC: tap chip+, type "tomato", tap Add
-    HomeVC->>HomeVM: addChip("tomato")
-    User->>HomeVC: tap "Suggest recipes"
-    HomeVC->>HomeVM: generate()
-    HomeVM->>HomeVM: state = .loading
-    HomeVM->>OpenAIClient: suggestRecipes(ingredients:)
+    User->>CatalogVC: tap "Breakfast ideas" card
+    CatalogVC->>CatalogVM: generateForMeal(.breakfast)
+    CatalogVM->>CatalogVM: state = .loading
+    CatalogVM->>OpenAIClient: suggestRecipes(forMeal: .breakfast, style: nil)
     OpenAIClient->>OpenAIClient: POST /v1/chat/completions<br/>json_schema response_format
-    OpenAIClient-->>HomeVM: [Recipe] x3
-    HomeVM->>RecipeStore: save(batch)
-    HomeVM->>HomeVM: state = .loaded(batch)
-    HomeVC->>RecipeBatchVC: push (via Combine sink)
+    OpenAIClient-->>CatalogVM: [Recipe] x3
+    CatalogVM->>RecipeStore: save(batch)
+    CatalogVM->>CatalogVM: state = .loaded(batch)
+    CatalogVC->>RecipeBatchVC: push (via Combine sink)
     RecipeBatchVC->>User: 3 cards
 ```
+
+The other entry points work the same way, just calling different `OpenAIClient` methods:
+- text field → `suggestRecipes(dishName:)`
+- **From my fridge** → `suggestRecipes(imageJPEG:)` (GPT-4o Vision, same call as v1)
+- magic button → `suggestRecipes(forMeal:style:)` with a random `MealType` + `RecipeStyle`
+
+`DailyPicksService` runs once on app launch and caches three dish titles per calendar day via `gpt-4o-mini`; the meal cards render those as "Today: …" subtitles.
 
 ### Key principles
 
@@ -156,15 +174,16 @@ recipe-ingredients-ios/
 └── FridgeChef/
     ├── App/                                 ← AppDelegate, SceneDelegate, RootTabBar, Dependencies
     ├── Features/                            ← one folder per screen, each with View/ + ViewModel/
-    │   ├── Home/
+    │   ├── Catalog/                         ← Home tab (replaces v1 Home/)
     │   ├── RecipeBatch/
     │   ├── RecipeDetail/
     │   ├── Recipes/
     │   └── Settings/
-    ├── SharedModels/                        ← Recipe, RecipeBatch (used across features)
+    ├── SharedModels/                        ← Recipe, RecipeBatch, MealType, RecipeStyle, DailyPicks, Notifications
     ├── Services/
     │   ├── Networking/                      ← OpenAIClient, OpenAIError, APIKeyProvider, Prompts
     │   ├── Persistence/                     ← CoreDataStack, RecipeStore, .xcdatamodeld, entity extensions
+    │   ├── DailyPicks/                      ← DailyPicksService (UserDefaults cache, calendar-day staleness)
     │   └── Theme/                           ← ThemeManager
     ├── DesignSystem/                        ← Colors, Typography, Spacing, Fonts/
     └── Resources/
@@ -242,16 +261,17 @@ xcodebuild -project FridgeChef.xcodeproj -scheme FridgeChef \
 
 | Layer | Tool | Tests |
 |---|---|---|
-| ViewModels | XCTest | 9 (HomeVM) + 2 (RecipeBatchVM) + 1 (RecipeDetailVM) + 3 (RecipesVM) + 4 (SettingsVM) |
-| OpenAIClient | XCTest with `URLProtocol` stub | 10 (request shape, response decode, 4xx/5xx mapping, image variant) |
-| RecipeStore | XCTest with in-memory `NSPersistentContainer` | 5 (save/load/byId/deleteAll/ordering) |
-| APIKeyProvider | XCTest with custom `Bundle` | 3 (present/missing/empty) |
-| ThemeManager | XCTest with custom `UserDefaults` | 4 (default/light/dark/style mapping) |
-| UI smoke | XCUITest with launch-arg stub injection | 3 (one per tab — UI elements present) |
+| ViewModels | XCTest | CatalogVM + RecipeBatchVM + RecipeDetailVM + RecipesVM + SettingsVM |
+| OpenAIClient | XCTest with `URLProtocol` stub | request shape + response decode + 4xx/5xx mapping for ingredients / image / dishName / forMeal / dailyPicks variants |
+| DailyPicksService | XCTest | calendar-day cache hit/miss, silent error path, publisher emits on refresh |
+| RecipeStore | XCTest with in-memory `NSPersistentContainer` | save / load / byId / deleteAll / ordering |
+| APIKeyProvider | XCTest with custom `Bundle` | present / missing / empty |
+| ThemeManager | XCTest with custom `UserDefaults` | default / light / dark / style mapping |
+| UI smoke | XCUITest with launch-arg stub injection | 3 (one per tab — catalog cards present, recipes empty state, theme toggle) |
 
-**Total:** 43 unit tests + 3 UI smoke = **46 tests.**
+**Total:** 49 unit tests + 3 UI smoke = **52 tests.**
 
-The end-to-end Home generate→push flow is exercised by `HomeVMTests` + `RecipeBatchVMTests` rather than XCUITest, because keyboard timing and navigation animations make the XCUITest version flaky in simulator.
+The end-to-end catalog → generate → push flow is exercised by `CatalogVMTests` + `RecipeBatchVMTests` rather than XCUITest, because keyboard timing and navigation animations make the XCUITest version flaky in simulator.
 
 ### Pre-commit secret-scan hook
 
@@ -272,8 +292,15 @@ A `.git/hooks/pre-commit` script blocks any commit whose staged diff contains an
 
 ## Design + plan docs
 
-- 📐 **[Design spec](docs/superpowers/specs/2026-05-18-fridgechef-ios-v1-design.md)** — the full architectural decisions, screen mocks, error handling, testing strategy
-- 🛠 **[Implementation plan](docs/superpowers/plans/2026-05-18-fridgechef-ios-v1.md)** — 11 phases, 56 tasks, every task with code blocks and exact commands
+**v1 (chip-based Home → 3 recipes)**
+
+- 📐 **[v1 Design spec](docs/superpowers/specs/2026-05-18-fridgechef-ios-v1-design.md)** — the full architectural decisions, screen mocks, error handling, testing strategy
+- 🛠 **[v1 Implementation plan](docs/superpowers/plans/2026-05-18-fridgechef-ios-v1.md)** — 11 phases, 56 tasks, every task with code blocks and exact commands
+
+**v1.1 (Recipe Catalog Home redesign)**
+
+- 📐 **[Catalog redesign spec](docs/superpowers/specs/2026-05-18-fridgechef-catalog-redesign-design.md)** — five entry points, DailyPicksService, new OpenAIClient methods
+- 🛠 **[Catalog redesign plan](docs/superpowers/plans/2026-05-18-fridgechef-catalog-redesign.md)** — 10 TDD phases, ~40 tasks, replaces the v1 Home tab
 
 ## License
 
