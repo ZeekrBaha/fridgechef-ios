@@ -1,10 +1,26 @@
 import CoreData
+import Foundation
+
+enum RecipeStoreError: Error, LocalizedError {
+    case notFound
+
+    var errorDescription: String? {
+        switch self {
+        case .notFound: return "Recipe or batch not found."
+        }
+    }
+}
 
 protocol RecipeStoreProtocol {
     func save(_ batch: RecipeBatch) async throws
     func allBatches() async throws -> [RecipeBatch]
     func batch(id: UUID) async throws -> RecipeBatch?
     func deleteAll() async throws
+
+    func update(_ recipe: Recipe, in batchId: UUID) async throws
+    func setFavorite(recipeId: UUID, isFavorite: Bool) async throws
+    func delete(recipeId: UUID) async throws
+    func delete(batchId: UUID) async throws
 }
 
 final class RecipeStore: RecipeStoreProtocol {
@@ -20,6 +36,7 @@ final class RecipeStore: RecipeStoreProtocol {
             _ = RecipeBatchEntity.create(from: batch, in: ctx)
             try ctx.save()
         }
+        postChanged()
     }
 
     func allBatches() async throws -> [RecipeBatch] {
@@ -43,8 +60,6 @@ final class RecipeStore: RecipeStoreProtocol {
     }
 
     func deleteAll() async throws {
-        // NSBatchDeleteRequest doesn't support NSInMemoryStoreType, so iterate.
-        // Dataset is tiny (max a few hundred batches in practice).
         let ctx = stack.newBackgroundContext()
         try await ctx.perform {
             let req: NSFetchRequest<RecipeBatchEntity> = RecipeBatchEntity.fetchRequest()
@@ -52,5 +67,83 @@ final class RecipeStore: RecipeStoreProtocol {
             for entity in all { ctx.delete(entity) }
             try ctx.save()
         }
+        postChanged()
+    }
+
+    func update(_ recipe: Recipe, in batchId: UUID) async throws {
+        let ctx = stack.newBackgroundContext()
+        try await ctx.perform {
+            let req: NSFetchRequest<RecipeEntity> = RecipeEntity.fetchRequest()
+            req.predicate = NSPredicate(format: "id == %@", recipe.id as CVarArg)
+            req.fetchLimit = 1
+            guard let entity = try ctx.fetch(req).first,
+                  entity.batch?.id == batchId else {
+                throw RecipeStoreError.notFound
+            }
+            entity.title = recipe.title
+            entity.recipeDescription = recipe.description
+            entity.ingredientsJSON = encodeJSONArray(recipe.ingredients)
+            entity.stepsJSON = encodeJSONArray(recipe.steps)
+            entity.estimatedTime = recipe.estimatedTime
+            entity.updatedAt = Date()
+            try ctx.save()
+        }
+        postChanged()
+    }
+
+    func setFavorite(recipeId: UUID, isFavorite: Bool) async throws {
+        let ctx = stack.newBackgroundContext()
+        try await ctx.perform {
+            let req: NSFetchRequest<RecipeEntity> = RecipeEntity.fetchRequest()
+            req.predicate = NSPredicate(format: "id == %@", recipeId as CVarArg)
+            req.fetchLimit = 1
+            guard let entity = try ctx.fetch(req).first else {
+                throw RecipeStoreError.notFound
+            }
+            entity.isFavorite = isFavorite
+            try ctx.save()
+        }
+        postChanged()
+    }
+
+    func delete(recipeId: UUID) async throws {
+        let ctx = stack.newBackgroundContext()
+        try await ctx.perform {
+            let req: NSFetchRequest<RecipeEntity> = RecipeEntity.fetchRequest()
+            req.predicate = NSPredicate(format: "id == %@", recipeId as CVarArg)
+            req.fetchLimit = 1
+            guard let entity = try ctx.fetch(req).first else {
+                throw RecipeStoreError.notFound
+            }
+            let parent = entity.batch
+            ctx.delete(entity)
+            if let parent {
+                let remaining = (parent.recipes?.count ?? 0) - 1
+                if remaining <= 0 {
+                    ctx.delete(parent)
+                }
+            }
+            try ctx.save()
+        }
+        postChanged()
+    }
+
+    func delete(batchId: UUID) async throws {
+        let ctx = stack.newBackgroundContext()
+        try await ctx.perform {
+            let req: NSFetchRequest<RecipeBatchEntity> = RecipeBatchEntity.fetchRequest()
+            req.predicate = NSPredicate(format: "id == %@", batchId as CVarArg)
+            req.fetchLimit = 1
+            guard let entity = try ctx.fetch(req).first else {
+                throw RecipeStoreError.notFound
+            }
+            ctx.delete(entity)
+            try ctx.save()
+        }
+        postChanged()
+    }
+
+    private func postChanged() {
+        NotificationCenter.default.post(name: .recipesDidChange, object: nil)
     }
 }

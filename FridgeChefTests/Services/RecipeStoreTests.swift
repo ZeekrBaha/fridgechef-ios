@@ -56,6 +56,99 @@ final class RecipeStoreTests: XCTestCase {
         XCTAssertEqual(all, [])
     }
 
+    // MARK: - update
+
+    func test_update_rewritesAllFields_andBumpsUpdatedAt() async throws {
+        let batch = sampleBatch(ingredients: ["a"], recipeCount: 1)
+        try await store.save(batch)
+        let original = batch.recipes[0]
+        let edited = Recipe(
+            id: original.id,
+            title: "New title",
+            description: "New desc",
+            ingredients: ["new1", "new2"],
+            steps: ["s1", "s2", "s3"],
+            estimatedTime: "12 min",
+            isFavorite: original.isFavorite,
+            updatedAt: original.updatedAt
+        )
+        try await store.update(edited, in: batch.id)
+
+        let reloaded = try await store.batch(id: batch.id)
+        let r = reloaded?.recipes.first
+        XCTAssertEqual(r?.title, "New title")
+        XCTAssertEqual(r?.description, "New desc")
+        XCTAssertEqual(r?.ingredients, ["new1", "new2"])
+        XCTAssertEqual(r?.steps, ["s1", "s2", "s3"])
+        XCTAssertEqual(r?.estimatedTime, "12 min")
+        XCTAssertNotNil(r?.updatedAt, "update should set updatedAt to non-nil")
+    }
+
+    func test_update_missingRecipe_throwsNotFound() async throws {
+        let batch = sampleBatch(ingredients: ["a"], recipeCount: 1)
+        try await store.save(batch)
+        let bogus = Recipe(id: UUID(), title: "x", description: "",
+                           ingredients: [], steps: [], estimatedTime: "",
+                           isFavorite: false, updatedAt: nil)
+        do {
+            try await store.update(bogus, in: batch.id)
+            XCTFail("Expected .notFound")
+        } catch RecipeStoreError.notFound {
+            // ok
+        }
+    }
+
+    // MARK: - setFavorite
+
+    func test_setFavorite_persistsTheNewValue() async throws {
+        let batch = sampleBatch(ingredients: ["a"], recipeCount: 2)
+        try await store.save(batch)
+        let target = batch.recipes[1]
+        try await store.setFavorite(recipeId: target.id, isFavorite: true)
+
+        let reloaded = try await store.batch(id: batch.id)
+        XCTAssertEqual(reloaded?.recipes.first(where: { $0.id == target.id })?.isFavorite, true)
+        XCTAssertEqual(reloaded?.recipes.first(where: { $0.id == batch.recipes[0].id })?.isFavorite, false)
+    }
+
+    // MARK: - delete recipe
+
+    func test_deleteRecipe_removesOnlyThatRecipe() async throws {
+        let batch = sampleBatch(ingredients: ["a"], recipeCount: 3)
+        try await store.save(batch)
+        let middle = batch.recipes[1]
+
+        try await store.delete(recipeId: middle.id)
+
+        let reloaded = try await store.batch(id: batch.id)
+        XCTAssertEqual(reloaded?.recipes.count, 2)
+        XCTAssertFalse(reloaded?.recipes.contains(where: { $0.id == middle.id }) ?? true)
+    }
+
+    func test_deleteRecipe_lastInBatch_cascadesBatch() async throws {
+        let batch = sampleBatch(ingredients: ["a"], recipeCount: 1)
+        try await store.save(batch)
+
+        try await store.delete(recipeId: batch.recipes[0].id)
+
+        let reloaded = try await store.batch(id: batch.id)
+        XCTAssertNil(reloaded, "deleting the last recipe in a batch should cascade-delete the batch")
+    }
+
+    // MARK: - delete batch
+
+    func test_deleteBatch_removesBatchAndAllRecipes() async throws {
+        let batch = sampleBatch(ingredients: ["a"], recipeCount: 3)
+        try await store.save(batch)
+
+        try await store.delete(batchId: batch.id)
+
+        let reloaded = try await store.batch(id: batch.id)
+        XCTAssertNil(reloaded)
+        let all = try await store.allBatches()
+        XCTAssertEqual(all, [])
+    }
+
     private func sampleBatch(ingredients: [String],
                              recipeCount: Int,
                              createdAt: Date = Date(),
