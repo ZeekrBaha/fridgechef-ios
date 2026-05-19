@@ -26,7 +26,8 @@ iOS app with a recipe catalog Home tab: a text field for any dish name, four ide
 - **Today's pick on every meal card** — a separate `gpt-4o-mini` daily call seeds each card with a fresh dish title once per calendar day (cached in `UserDefaults`, no spinner on subsequent launches)
 - **Structured outputs** — uses OpenAI's `response_format: json_schema` so the model returns valid JSON every time, no string parsing
 - **Recipe history** — every generated batch persists to Core Data, browsable in a Recipes tab grouped by relative date (Today / Yesterday / This Week / by month)
-- **Recipe detail** — full recipe view with ingredients and numbered steps
+- **Personal cookbook** (Phase 1) — write your own recipes from scratch with the **+** button: title, optional description, ingredients list, numbered steps, estimated time. Edit any recipe (AI-generated or user-created). Star recipes as favorites and browse the **Favorites** segment. Cascade-safe delete: deleting the last recipe in a batch removes the batch automatically.
+- **Recipe detail** — full recipe view with ingredients and numbered steps; heart button to toggle favorite
 - **Theme** — Follow System / Light / Dark, persisted in `UserDefaults`
 - **Single-key bootstrap** — no setup screen; OpenAI key is read at build time from a sibling project's `.env` and baked into the built `Info.plist`
 
@@ -55,6 +56,7 @@ Real end-to-end run captured from the iOS Simulator. The fridge-photo path uses 
 | Recipe batch | <img src="docs/screenshots/04-recipe-batch.jpg" width="200" /> | GPT-4o returned 3 cards |
 | Recipe detail | <img src="docs/screenshots/05-recipe-detail.jpg" width="200" /> | Tap a card → full ingredients + numbered steps |
 | Recipes history | <img src="docs/screenshots/06-recipes-history.jpg" width="200" /> | Recipes tab — batch grouped under TODAY |
+| Create recipe | <img src="docs/screenshots/create-recipe.jpg" width="200" /> | Tap **+** → Title (required), description, ingredients, steps, estimated time |
 | Settings | <img src="docs/screenshots/07-settings.jpg" width="200" /> | Theme picker, key status (✓ injected), model, version |
 
 ### Dark mode
@@ -74,9 +76,10 @@ graph TB
     subgraph "FridgeChef (UIKit, MVVM + Combine, iOS 17+)"
         CatalogVC[CatalogVC] <--> CatalogVM[CatalogVM]
         RecipeBatchVC[RecipeBatchVC] <--> RecipeBatchVM[RecipeBatchVM]
-        RecipeDetailVC[RecipeDetailVC] <--> RecipeDetailVM[RecipeDetailVM]
-        RecipesVC[RecipesVC] <--> RecipesVM[RecipesVM]
+        RecipeDetailVC[RecipeDetailVC] <--> RecipeDetailVM[RecipeDetailVM<br/>toggleFavorite + optimistic revert]
+        RecipesVC[RecipesVC] <--> RecipesVM[RecipesVM<br/>Filter: All / Favorites]
         SettingsVC[SettingsVC] <--> SettingsVM[SettingsVM]
+        CreateEditRecipeVC[CreateEditRecipeVC] <--> CreateEditRecipeVM[CreateEditRecipeVM<br/>Mode: new / edit]
 
         CatalogVM --> OpenAIClient
         CatalogVM --> RecipeStore
@@ -84,6 +87,10 @@ graph TB
         DailyPicksService --> OpenAIClient
         RecipeBatchVM --> RecipeStore
         RecipesVM --> RecipeStore
+        RecipeDetailVM --> RecipeStore
+        CreateEditRecipeVM --> RecipeStore
+        RecipesVC -. present .-> CreateEditRecipeVC
+        RecipeDetailVC -. present .-> CreateEditRecipeVC
         SettingsVM --> ThemeManager
         SettingsVM --> RecipeStore
         SettingsVM --> APIKeyProvider
@@ -93,7 +100,7 @@ graph TB
         RecipeBatchVC -. push .-> RecipeDetailVC
 
         OpenAIClient[OpenAIClient<br/>protocol<br/>dish / meal / image / surprise / dailyPicks]
-        RecipeStore[RecipeStore<br/>protocol]
+        RecipeStore[RecipeStore<br/>protocol<br/>v2 model: source · isFavorite · updatedAt]
         DailyPicksService[DailyPicksService<br/>UserDefaults cache,<br/>per-calendar-day]
         ThemeManager[ThemeManager<br/>UserDefaults]
         APIKeyProvider[APIKeyProvider<br/>Info.plist]
@@ -178,8 +185,9 @@ recipe-ingredients-ios/
     │   ├── RecipeBatch/
     │   ├── RecipeDetail/
     │   ├── Recipes/
+    │   ├── CreateEditRecipe/                ← Phase 1: create + edit, both modes share one VC/VM
     │   └── Settings/
-    ├── SharedModels/                        ← Recipe, RecipeBatch, MealType, RecipeStyle, DailyPicks, Notifications
+    ├── SharedModels/                        ← Recipe (+isFavorite/updatedAt), RecipeBatch (+source), MealType, RecipeStyle, DailyPicks, Notifications, RecipeSource
     ├── Services/
     │   ├── Networking/                      ← OpenAIClient, OpenAIError, APIKeyProvider, Prompts
     │   ├── Persistence/                     ← CoreDataStack, RecipeStore, .xcdatamodeld, entity extensions
@@ -267,9 +275,10 @@ xcodebuild -project FridgeChef.xcodeproj -scheme FridgeChef \
 | RecipeStore | XCTest with in-memory `NSPersistentContainer` | save / load / byId / deleteAll / ordering |
 | APIKeyProvider | XCTest with custom `Bundle` | present / missing / empty |
 | ThemeManager | XCTest with custom `UserDefaults` | default / light / dark / style mapping |
-| UI smoke | XCUITest with launch-arg stub injection | 3 (one per tab — catalog cards present, recipes empty state, theme toggle) |
+| CreateEditRecipeVM | XCTest | validation (title required) · save new · update existing · add/remove rows |
+| UI smoke | XCUITest with launch-arg stub injection | 4 (catalog cards present · + opens create form · recipes empty state · theme toggle) |
 
-**Total:** 49 unit tests + 3 UI smoke = **52 tests.**
+**Total:** 68 unit tests + 4 UI smoke = **72 tests.**
 
 The end-to-end catalog → generate → push flow is exercised by `CatalogVMTests` + `RecipeBatchVMTests` rather than XCUITest, because keyboard timing and navigation animations make the XCUITest version flaky in simulator.
 
@@ -279,8 +288,6 @@ A `.git/hooks/pre-commit` script blocks any commit whose staged diff contains an
 
 ## What's deferred to v2
 
-- Favoriting / starring individual recipes
-- Editing saved recipes
 - Share sheet on recipe detail
 - Crash reporting (Sentry SDK)
 - iPad bespoke layout, Mac Catalyst
@@ -305,6 +312,11 @@ A `.git/hooks/pre-commit` script blocks any commit whose staged diff contains an
 
 - 📐 **[Catalog redesign spec](docs/superpowers/specs/2026-05-18-fridgechef-catalog-redesign-design.md)** — five entry points, DailyPicksService, new OpenAIClient methods
 - 🛠 **[Catalog redesign plan](docs/superpowers/plans/2026-05-18-fridgechef-catalog-redesign.md)** — 10 TDD phases, ~40 tasks, replaces the v1 Home tab
+
+**v1.2 (Personal Cookbook — Phase 1)**
+
+- 📐 **[Cookbook Phase 1 spec](docs/superpowers/specs/2026-05-19-fridgechef-cookbook-phase1-design.md)** — create/edit, favorites, Core Data v2 model, cascade delete, optimistic toggle
+- 🛠 **[Cookbook Phase 1 plan](docs/superpowers/plans/2026-05-19-fridgechef-cookbook-phase1.md)** — 20 TDD tasks, CreateEditRecipeVC/VM, RecipesVM.Filter, RecipeBatchVM.BatchState
 
 ## License
 

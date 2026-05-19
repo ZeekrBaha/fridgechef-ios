@@ -11,6 +11,7 @@ final class CreateEditRecipeVC: UIViewController {
 
     private let titleField = UITextField()
     private let descriptionView = UITextView()
+    private let descriptionPlaceholder = UILabel()
     private let ingredientsStack = UIStackView()
     private let stepsStack = UIStackView()
     private let timeField = UITextField()
@@ -72,6 +73,7 @@ final class CreateEditRecipeVC: UIViewController {
     }
 
     private func buildForm() {
+        formStack.addArrangedSubview(makeSectionHeader("Title *"))
         titleField.font = Typography.fraunces(28, weight: .bold)
         titleField.textColor = .ink
         titleField.placeholder = "Recipe title"
@@ -91,6 +93,18 @@ final class CreateEditRecipeVC: UIViewController {
         descriptionView.accessibilityLabel = "Description"
         descriptionView.delegate = self
         descriptionView.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
+        descriptionPlaceholder.text = "Optional notes, backstory, or cooking tips…"
+        descriptionPlaceholder.font = Typography.dmSans(16)
+        descriptionPlaceholder.textColor = .tertiaryLabel
+        descriptionPlaceholder.numberOfLines = 0
+        descriptionPlaceholder.translatesAutoresizingMaskIntoConstraints = false
+        descriptionPlaceholder.isUserInteractionEnabled = false
+        descriptionView.addSubview(descriptionPlaceholder)
+        NSLayoutConstraint.activate([
+            descriptionPlaceholder.topAnchor.constraint(equalTo: descriptionView.topAnchor, constant: 8),
+            descriptionPlaceholder.leadingAnchor.constraint(equalTo: descriptionView.leadingAnchor, constant: 5),
+            descriptionPlaceholder.trailingAnchor.constraint(equalTo: descriptionView.trailingAnchor, constant: -5),
+        ])
         formStack.addArrangedSubview(descriptionView)
         formStack.addArrangedSubview(makeRule())
 
@@ -128,6 +142,7 @@ final class CreateEditRecipeVC: UIViewController {
 
         titleField.text = vm.title
         descriptionView.text = vm.descriptionText
+        descriptionPlaceholder.isHidden = !vm.descriptionText.isEmpty
         timeField.text = vm.estimatedTime
         rebuildIngredientRows()
         rebuildStepRows()
@@ -289,5 +304,6 @@ final class CreateEditRecipeVC: UIViewController {
 extension CreateEditRecipeVC: UITextViewDelegate {
     func textViewDidChange(_ textView: UITextView) {
         vm.descriptionText = textView.text ?? ""
+        descriptionPlaceholder.isHidden = !textView.text.isEmpty
     }
 }

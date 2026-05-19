@@ -110,6 +110,8 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
 
     private func render(groups: [RecipesVM.Group]) {
         if groups.isEmpty {
+            let emptySnap = NSDiffableDataSourceSnapshot<String, RecipeBatch>()
+            dataSource.apply(emptySnap, animatingDifferences: false)
             var config = UIContentUnavailableConfiguration.empty()
             config.text = vm.filter == .favorites ? "No favorites yet" : "No recipes yet"
             config.secondaryText = vm.filter == .favorites
