@@ -97,6 +97,6 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
         let title = dataSource.snapshot().sectionIdentifiers[indexPath.section]
         guard let group = vm.groups.first(where: { $0.title == title }) else { return }
         let batch = group.items[indexPath.item]
-        navigationController?.pushViewController(RecipeBatchVC(vm: RecipeBatchVM(batch: batch)), animated: true)
+        navigationController?.pushViewController(RecipeBatchVC(vm: RecipeBatchVM(batch: batch, store: vm.store)), animated: true)
     }
 }

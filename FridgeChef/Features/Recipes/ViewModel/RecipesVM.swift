@@ -11,7 +11,7 @@ final class RecipesVM {
 
     @Published private(set) var groups: [Group] = []
 
-    private let store: RecipeStoreProtocol
+    let store: RecipeStoreProtocol
     private let calendar: Calendar
     private let now: () -> Date
     private var notificationToken: NSObjectProtocol?
