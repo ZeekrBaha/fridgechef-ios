@@ -28,7 +28,8 @@ final class CatalogVMTests: XCTestCase {
     func test_generateForDish_savesBatchAndTransitionsToLoaded() async throws {
         let recipes = (0..<3).map { i in
             Recipe(id: UUID(), title: "T\(i)", description: "d",
-                   ingredients: ["a"], steps: ["s"], estimatedTime: "10 min")
+                   ingredients: ["a"], steps: ["s"], estimatedTime: "10 min",
+                   isFavorite: false, updatedAt: nil)
         }
         client.dishResult = .success(recipes)
 
@@ -54,7 +55,8 @@ final class CatalogVMTests: XCTestCase {
     func test_generateForMeal_callsClientWithMeal_andNilStyle() async throws {
         let recipes = (0..<3).map { _ in
             Recipe(id: UUID(), title: "x", description: "d",
-                   ingredients: ["a"], steps: ["s"], estimatedTime: "10 min")
+                   ingredients: ["a"], steps: ["s"], estimatedTime: "10 min",
+                   isFavorite: false, updatedAt: nil)
         }
         client.mealResult = .success(recipes)
 
@@ -74,7 +76,8 @@ final class CatalogVMTests: XCTestCase {
     func test_generateRandom_callsClientWithSomeMealAndSomeStyle() async throws {
         let recipes = (0..<3).map { _ in
             Recipe(id: UUID(), title: "x", description: "d",
-                   ingredients: ["a"], steps: ["s"], estimatedTime: "10 min")
+                   ingredients: ["a"], steps: ["s"], estimatedTime: "10 min",
+                   isFavorite: false, updatedAt: nil)
         }
         client.mealResult = .success(recipes)
 

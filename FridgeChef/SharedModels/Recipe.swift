@@ -7,4 +7,6 @@ struct Recipe: Codable, Hashable, Identifiable {
     let ingredients: [String]
     let steps: [String]
     let estimatedTime: String
+    let isFavorite: Bool
+    let updatedAt: Date?
 }

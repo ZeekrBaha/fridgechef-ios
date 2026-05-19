@@ -189,7 +189,9 @@ struct OpenAIClient: OpenAIClientProtocol {
                    description: $0.description,
                    ingredients: $0.ingredients,
                    steps: $0.steps,
-                   estimatedTime: $0.estimatedTime)
+                   estimatedTime: $0.estimatedTime,
+                   isFavorite: false,
+                   updatedAt: nil)
         }
     }
 

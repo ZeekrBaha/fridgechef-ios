@@ -41,7 +41,7 @@ final class SettingsVMTests: XCTestCase {
 
     func test_clearAll_emptiesStore() async {
         store.batches = [
-            RecipeBatch(id: UUID(), createdAt: Date(), inputIngredients: [], inputImageThumbnailJPEG: nil, recipes: [])
+            RecipeBatch(id: UUID(), createdAt: Date(), inputIngredients: [], inputImageThumbnailJPEG: nil, recipes: [], source: .ai)
         ]
         await vm.clearAll()
         XCTAssertEqual(store.batches, [])

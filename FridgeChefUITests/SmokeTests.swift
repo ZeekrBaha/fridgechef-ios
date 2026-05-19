@@ -47,4 +47,16 @@ final class SmokeTests: XCTestCase {
         seg.buttons.element(boundBy: 2).tap()
         XCTAssertTrue(seg.buttons.element(boundBy: 2).isSelected)
     }
+
+    func test_recipes_create_button_opensForm() {
+        let app = launch()
+        app.tabBars.buttons["Recipes"].tap()
+
+        let createButton = app.navigationBars["Recipes"].buttons["recipes.create.button"]
+        XCTAssertTrue(createButton.waitForExistence(timeout: 3))
+        createButton.tap()
+
+        XCTAssertTrue(app.textFields["create.title.field"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["create.save.button"].exists)
+    }
 }

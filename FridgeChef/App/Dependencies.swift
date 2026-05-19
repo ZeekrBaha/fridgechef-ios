@@ -27,7 +27,9 @@ struct Dependencies {
                    description: "Pre-canned for UI tests.",
                    ingredients: ["chips for UI test"],
                    steps: ["Run the test"],
-                   estimatedTime: "5 min")
+                   estimatedTime: "5 min",
+                   isFavorite: false,
+                   updatedAt: nil)
         }
         let stubClient = UITestStubClient(recipes: recipes)
         let stubPicks = UITestStubDailyPicksService()
@@ -62,6 +64,10 @@ private final class UITestStubStore: RecipeStoreProtocol {
     func allBatches() async throws -> [RecipeBatch] { batches }
     func batch(id: UUID) async throws -> RecipeBatch? { batches.first { $0.id == id } }
     func deleteAll() async throws { batches = [] }
+    func update(_ recipe: Recipe, in batchId: UUID) async throws { }
+    func setFavorite(recipeId: UUID, isFavorite: Bool) async throws { }
+    func delete(recipeId: UUID) async throws { }
+    func delete(batchId: UUID) async throws { }
 }
 
 @MainActor

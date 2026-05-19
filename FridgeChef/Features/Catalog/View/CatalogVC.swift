@@ -232,7 +232,7 @@ final class CatalogVC: UIViewController {
             showOverlay()
         case .loaded(let batch):
             hideOverlay()
-            let detail = RecipeBatchVC(vm: RecipeBatchVM(batch: batch))
+            let detail = RecipeBatchVC(vm: RecipeBatchVM(batch: batch, store: vm.store))
             navigationController?.pushViewController(detail, animated: true)
         case .error(let msg):
             hideOverlay()

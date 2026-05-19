@@ -6,4 +6,5 @@ struct RecipeBatch: Identifiable, Hashable {
     let inputIngredients: [String]
     let inputImageThumbnailJPEG: Data?
     let recipes: [Recipe]
+    let source: RecipeSource
 }

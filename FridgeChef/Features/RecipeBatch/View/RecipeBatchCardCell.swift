@@ -7,6 +7,7 @@ final class RecipeBatchCardCell: UICollectionViewCell {
     private let descLabel = UILabel()
     private let badges = UILabel()
     private let timeLabel = UILabel()
+    private let heart = UIImageView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -37,6 +38,17 @@ final class RecipeBatchCardCell: UICollectionViewCell {
             stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -Spacing.s16),
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -Spacing.s16),
         ])
+
+        heart.image = UIImage(systemName: "heart.fill",
+                              withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold))
+        heart.tintColor = .terracotta
+        heart.translatesAutoresizingMaskIntoConstraints = false
+        heart.isHidden = true
+        contentView.addSubview(heart)
+        NSLayoutConstraint.activate([
+            heart.topAnchor.constraint(equalTo: contentView.topAnchor, constant: Spacing.s8),
+            heart.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -Spacing.s8),
+        ])
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -49,10 +61,6 @@ final class RecipeBatchCardCell: UICollectionViewCell {
         if overflow > 0 { b += " · +\(overflow)" }
         badges.text = b
         timeLabel.text = recipe.estimatedTime
-    }
-
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        contentView.layer.borderColor = UIColor.rule.cgColor
+        heart.isHidden = !recipe.isFavorite
     }
 }

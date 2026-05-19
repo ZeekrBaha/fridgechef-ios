@@ -9,7 +9,18 @@ final class RecipesBatchCell: UICollectionViewListCell {
         content.text = "\(timeFmt.string(from: batch.createdAt)) · \(batch.recipes.count) recipes"
         content.textProperties.font = Typography.dmSans(16, weight: .medium)
         content.textProperties.color = .ink
-        content.secondaryText = batch.inputIngredients.joined(separator: ", ")
+
+        let hasFavorite = batch.recipes.contains(where: \.isFavorite)
+        if hasFavorite {
+            content.image = UIImage(systemName: "heart.fill",
+                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold))
+            content.imageProperties.tintColor = .terracotta
+            content.imageToTextPadding = Spacing.s8
+        }
+
+        content.secondaryText = batch.inputIngredients.isEmpty
+            ? (batch.source == .user ? "Your recipe" : "")
+            : batch.inputIngredients.joined(separator: ", ")
         content.secondaryTextProperties.font = Typography.dmSans(13)
         content.secondaryTextProperties.color = .inkSoft
         contentConfiguration = content

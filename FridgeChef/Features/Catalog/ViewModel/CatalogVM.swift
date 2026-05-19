@@ -17,7 +17,7 @@ final class CatalogVM {
     @Published private(set) var presentPhotoPicker: Bool = false
 
     private let client: OpenAIClientProtocol
-    private let store: RecipeStoreProtocol
+    let store: RecipeStoreProtocol
     private let dailyPicksService: DailyPicksService
     private var task: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
@@ -86,7 +86,8 @@ final class CatalogVM {
                     createdAt: Date(),
                     inputIngredients: [],
                     inputImageThumbnailJPEG: nil,
-                    recipes: recipes)
+                    recipes: recipes,
+                    source: .ai)
                 try await store.save(batch)
                 if Task.isCancelled { return }
                 self.state = .loaded(batch)

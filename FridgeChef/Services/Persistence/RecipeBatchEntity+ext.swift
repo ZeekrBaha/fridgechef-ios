@@ -5,12 +5,14 @@ extension RecipeBatchEntity {
         let orderedRecipes = (recipes?.array as? [RecipeEntity] ?? [])
             .sorted { $0.order < $1.order }
             .map(\.asRecipe)
+        let parsedSource = RecipeSource(rawValue: source ?? "ai") ?? .ai
         return RecipeBatch(
             id: id ?? UUID(),
             createdAt: createdAt ?? Date(),
             inputIngredients: decodeJSONArray(inputIngredientsJSON),
             inputImageThumbnailJPEG: inputImageThumbnailJPEG,
-            recipes: orderedRecipes
+            recipes: orderedRecipes,
+            source: parsedSource
         )
     }
 
@@ -21,6 +23,7 @@ extension RecipeBatchEntity {
         e.createdAt = batch.createdAt
         e.inputIngredientsJSON = encodeJSONArray(batch.inputIngredients)
         e.inputImageThumbnailJPEG = batch.inputImageThumbnailJPEG
+        e.source = batch.source.rawValue
         let set = NSMutableOrderedSet()
         for (idx, r) in batch.recipes.enumerated() {
             let re = RecipeEntity.create(from: r, order: Int16(idx), in: ctx)
