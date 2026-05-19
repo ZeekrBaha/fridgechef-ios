@@ -52,6 +52,7 @@ final class RecipesVMTests: XCTestCase {
         RecipeBatch(id: UUID(), createdAt: date,
                     inputIngredients: ["x"],
                     inputImageThumbnailJPEG: nil,
-                    recipes: [])
+                    recipes: [],
+                    source: .ai)
     }
 }

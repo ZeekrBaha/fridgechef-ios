@@ -27,7 +27,9 @@ struct Dependencies {
                    description: "Pre-canned for UI tests.",
                    ingredients: ["chips for UI test"],
                    steps: ["Run the test"],
-                   estimatedTime: "5 min")
+                   estimatedTime: "5 min",
+                   isFavorite: false,
+                   updatedAt: nil)
         }
         let stubClient = UITestStubClient(recipes: recipes)
         let stubPicks = UITestStubDailyPicksService()

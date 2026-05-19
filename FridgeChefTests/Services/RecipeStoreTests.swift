@@ -58,7 +58,8 @@ final class RecipeStoreTests: XCTestCase {
 
     private func sampleBatch(ingredients: [String],
                              recipeCount: Int,
-                             createdAt: Date = Date()) -> RecipeBatch {
+                             createdAt: Date = Date(),
+                             source: RecipeSource = .ai) -> RecipeBatch {
         RecipeBatch(
             id: UUID(),
             createdAt: createdAt,
@@ -70,8 +71,11 @@ final class RecipeStoreTests: XCTestCase {
                        description: "d\(i)",
                        ingredients: ["ing\(i)"],
                        steps: ["step\(i)"],
-                       estimatedTime: "\(i*5) min")
-            }
+                       estimatedTime: "\(i*5) min",
+                       isFavorite: false,
+                       updatedAt: nil)
+            },
+            source: source
         )
     }
 }

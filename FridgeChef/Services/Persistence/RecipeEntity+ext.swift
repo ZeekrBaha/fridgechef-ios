@@ -8,7 +8,9 @@ extension RecipeEntity {
             description: recipeDescription ?? "",
             ingredients: decodeJSONArray(ingredientsJSON),
             steps: decodeJSONArray(stepsJSON),
-            estimatedTime: estimatedTime ?? ""
+            estimatedTime: estimatedTime ?? "",
+            isFavorite: isFavorite,
+            updatedAt: updatedAt
         )
     }
 
@@ -22,6 +24,8 @@ extension RecipeEntity {
         e.stepsJSON = encodeJSONArray(recipe.steps)
         e.estimatedTime = recipe.estimatedTime
         e.order = order
+        e.isFavorite = recipe.isFavorite
+        e.updatedAt = recipe.updatedAt
         return e
     }
 }

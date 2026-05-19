@@ -6,6 +6,7 @@ final class RecipeBatchEntity: NSManagedObject {
     @NSManaged var createdAt: Date?
     @NSManaged var inputIngredientsJSON: String?
     @NSManaged var inputImageThumbnailJPEG: Data?
+    @NSManaged var source: String?
     @NSManaged var recipes: NSOrderedSet?
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<RecipeBatchEntity> {
@@ -22,6 +23,8 @@ final class RecipeEntity: NSManagedObject {
     @NSManaged var stepsJSON: String?
     @NSManaged var estimatedTime: String?
     @NSManaged var order: Int16
+    @NSManaged var isFavorite: Bool
+    @NSManaged var updatedAt: Date?
     @NSManaged var batch: RecipeBatchEntity?
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<RecipeEntity> {

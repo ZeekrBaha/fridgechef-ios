@@ -86,7 +86,8 @@ final class CatalogVM {
                     createdAt: Date(),
                     inputIngredients: [],
                     inputImageThumbnailJPEG: nil,
-                    recipes: recipes)
+                    recipes: recipes,
+                    source: .ai)
                 try await store.save(batch)
                 if Task.isCancelled { return }
                 self.state = .loaded(batch)
