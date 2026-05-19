@@ -1,16 +1,23 @@
 import Foundation
+import Combine
 
 @MainActor
 struct Dependencies {
     let openAIClient: OpenAIClientProtocol
     let recipeStore: RecipeStoreProtocol
+    let dailyPicksService: DailyPicksService
 
     static func makeLive() -> Dependencies {
         let stack = CoreDataStack()
         let store = RecipeStore(stack: stack)
         let apiKey = (try? APIKeyProvider.get()) ?? ""
         let client = OpenAIClient(apiKey: apiKey, session: .shared)
-        return Dependencies(openAIClient: client, recipeStore: store)
+        let picks = LiveDailyPicksService(client: client)
+        return Dependencies(
+            openAIClient: client,
+            recipeStore: store,
+            dailyPicksService: picks
+        )
     }
 
     static func makeUITestStubs() -> Dependencies {
@@ -22,9 +29,12 @@ struct Dependencies {
                    steps: ["Run the test"],
                    estimatedTime: "5 min")
         }
+        let stubClient = UITestStubClient(recipes: recipes)
+        let stubPicks = UITestStubDailyPicksService()
         return Dependencies(
-            openAIClient: UITestStubClient(recipes: recipes),
-            recipeStore: UITestStubStore()
+            openAIClient: stubClient,
+            recipeStore: UITestStubStore(),
+            dailyPicksService: stubPicks
         )
     }
 }
@@ -52,4 +62,18 @@ private final class UITestStubStore: RecipeStoreProtocol {
     func allBatches() async throws -> [RecipeBatch] { batches }
     func batch(id: UUID) async throws -> RecipeBatch? { batches.first { $0.id == id } }
     func deleteAll() async throws { batches = [] }
+}
+
+@MainActor
+private final class UITestStubDailyPicksService: DailyPicksService {
+    var current: DailyPicks? = DailyPicks(
+        breakfast: "Stub Pick",
+        lunch: "Stub Pick",
+        dinner: "Stub Pick",
+        savedAt: Date()
+    )
+    var publisher: AnyPublisher<DailyPicks?, Never> {
+        Just(current).eraseToAnyPublisher()
+    }
+    func refreshIfStale() async { /* no-op */ }
 }
