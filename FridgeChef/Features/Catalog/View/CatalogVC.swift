@@ -248,9 +248,17 @@ final class CatalogVC: UIViewController {
         v.translatesAutoresizingMaskIntoConstraints = false
         v.backgroundColor = UIColor.ink.withAlphaComponent(0.6)
 
-        let spinner = UIActivityIndicatorView(style: .large)
-        spinner.color = .paper
-        spinner.startAnimating()
+        let panConfig = UIImage.SymbolConfiguration(pointSize: 56, weight: .regular)
+        let panImage = UIImage(systemName: "frying.pan.fill", withConfiguration: panConfig)
+            ?? UIImage(systemName: "fork.knife", withConfiguration: panConfig)
+        let spinner = UIImageView(image: panImage)
+        spinner.tintColor = .paper
+        spinner.contentMode = .scaleAspectFit
+        let rotate = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotate.toValue = 2 * Double.pi
+        rotate.duration = 1.6
+        rotate.repeatCount = .infinity
+        spinner.layer.add(rotate, forKey: "rotate")
         let label = UILabel()
         label.text = "Cooking up ideas…"
         label.textColor = .paper
