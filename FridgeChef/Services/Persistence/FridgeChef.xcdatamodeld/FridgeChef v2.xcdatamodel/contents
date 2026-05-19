@@ -5,6 +5,7 @@
         <attribute name="createdAt" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="inputIngredientsJSON" optional="NO" attributeType="String" defaultValueString="[]"/>
         <attribute name="inputImageThumbnailJPEG" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
+        <attribute name="source" optional="NO" attributeType="String" defaultValueString="ai"/>
         <relationship name="recipes" optional="YES" toMany="YES" deletionRule="Cascade" ordered="YES" destinationEntity="RecipeEntity" inverseName="batch" inverseEntity="RecipeEntity"/>
     </entity>
     <entity name="RecipeEntity" representedClassName="RecipeEntity" syncable="YES">
@@ -15,6 +16,8 @@
         <attribute name="stepsJSON" optional="NO" attributeType="String" defaultValueString="[]"/>
         <attribute name="estimatedTime" optional="NO" attributeType="String" defaultValueString=""/>
         <attribute name="order" optional="NO" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="isFavorite" optional="NO" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="batch" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="RecipeBatchEntity" inverseName="recipes" inverseEntity="RecipeBatchEntity"/>
     </entity>
 </model>
