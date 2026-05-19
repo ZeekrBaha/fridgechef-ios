@@ -1,7 +1,26 @@
 import UIKit
+import Combine
 
 final class RecipeDetailVC: UIViewController {
+
     private let vm: RecipeDetailVM
+    private let contentStack = UIStackView()
+    private var cancellables = Set<AnyCancellable>()
+
+    private lazy var heartButton: UIBarButtonItem = {
+        let b = UIBarButtonItem(image: UIImage(systemName: "heart"),
+                                style: .plain, target: self, action: #selector(heartTapped))
+        b.tintColor = .terracotta
+        b.accessibilityIdentifier = "detail.favorite.button"
+        return b
+    }()
+
+    private lazy var editButton: UIBarButtonItem = {
+        let b = UIBarButtonItem(title: "Edit", style: .plain,
+                                target: self, action: #selector(editTapped))
+        b.accessibilityIdentifier = "detail.edit.button"
+        return b
+    }()
 
     init(vm: RecipeDetailVM) {
         self.vm = vm
@@ -12,54 +31,102 @@ final class RecipeDetailVC: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .paper
+        navigationItem.rightBarButtonItems = [heartButton, editButton]
+        setupLayout()
+        bind()
+    }
 
+    private func setupLayout() {
         let scroll = UIScrollView()
         scroll.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scroll)
 
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = Spacing.s16
-        stack.layoutMargins = .init(top: Spacing.s24, left: Spacing.s24, bottom: Spacing.s24, right: Spacing.s24)
-        stack.isLayoutMarginsRelativeArrangement = true
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        scroll.addSubview(stack)
+        contentStack.axis = .vertical
+        contentStack.spacing = Spacing.s16
+        contentStack.layoutMargins = .init(top: Spacing.s24, left: Spacing.s24,
+                                           bottom: Spacing.s24, right: Spacing.s24)
+        contentStack.isLayoutMarginsRelativeArrangement = true
+        contentStack.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(contentStack)
 
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            stack.topAnchor.constraint(equalTo: scroll.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: scroll.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: scroll.bottomAnchor),
-            stack.widthAnchor.constraint(equalTo: scroll.widthAnchor),
+            contentStack.topAnchor.constraint(equalTo: scroll.topAnchor),
+            contentStack.leadingAnchor.constraint(equalTo: scroll.leadingAnchor),
+            contentStack.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
+            contentStack.bottomAnchor.constraint(equalTo: scroll.bottomAnchor),
+            contentStack.widthAnchor.constraint(equalTo: scroll.widthAnchor),
         ])
+    }
 
-        let title = UILabel()
-        title.text = vm.recipe.title
-        title.font = Typography.fraunces(32, weight: .bold)
-        title.textColor = .ink
-        title.numberOfLines = 0
-        stack.addArrangedSubview(title)
+    private func bind() {
+        vm.$recipe
+            .sink { [weak self] in self?.rebuildContent(with: $0) }
+            .store(in: &cancellables)
+
+        vm.$isFavorite
+            .sink { [weak self] fav in
+                self?.heartButton.image = UIImage(systemName: fav ? "heart.fill" : "heart")
+                self?.heartButton.accessibilityLabel = fav ? "Unfavorite" : "Favorite"
+            }
+            .store(in: &cancellables)
+
+        vm.$lastError
+            .compactMap { $0 }
+            .sink { [weak self] msg in
+                let alert = UIAlertController(title: "Couldn't save favorite",
+                                              message: msg, preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                    self?.vm.clearError()
+                })
+                self?.present(alert, animated: true)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func rebuildContent(with recipe: Recipe) {
+        for v in contentStack.arrangedSubviews {
+            contentStack.removeArrangedSubview(v)
+            v.removeFromSuperview()
+        }
+        let titleLabel = UILabel()
+        titleLabel.text = recipe.title
+        titleLabel.font = Typography.fraunces(32, weight: .bold)
+        titleLabel.textColor = .ink
+        titleLabel.numberOfLines = 0
+        contentStack.addArrangedSubview(titleLabel)
 
         let time = UILabel()
-        time.text = vm.recipe.estimatedTime.uppercased()
+        time.text = recipe.estimatedTime.uppercased()
         time.font = Typography.dmSans(13, weight: .medium)
         time.textColor = .sage
-        stack.addArrangedSubview(time)
+        contentStack.addArrangedSubview(time)
 
-        stack.addArrangedSubview(makeRule())
-        stack.addArrangedSubview(makeSectionHeader("Ingredients"))
-        for ing in vm.recipe.ingredients {
-            stack.addArrangedSubview(makeBullet("• \(ing)"))
+        contentStack.addArrangedSubview(makeRule())
+        contentStack.addArrangedSubview(makeSectionHeader("Ingredients"))
+        for ing in recipe.ingredients {
+            contentStack.addArrangedSubview(makeBullet("• \(ing)"))
         }
-        stack.addArrangedSubview(makeRule())
-        stack.addArrangedSubview(makeSectionHeader("Steps"))
-        for (idx, step) in vm.recipe.steps.enumerated() {
-            stack.addArrangedSubview(makeBullet("\(idx + 1). \(step)"))
+        contentStack.addArrangedSubview(makeRule())
+        contentStack.addArrangedSubview(makeSectionHeader("Steps"))
+        for (idx, step) in recipe.steps.enumerated() {
+            contentStack.addArrangedSubview(makeBullet("\(idx + 1). \(step)"))
         }
+    }
+
+    @objc private func heartTapped() {
+        Task { await vm.toggleFavorite() }
+    }
+
+    @objc private func editTapped() {
+        let editVM = CreateEditRecipeVM(
+            mode: .edit(existing: vm.recipe, batchId: vm.batchId),
+            store: vm.makeStoreReference()
+        )
+        navigationController?.pushViewController(CreateEditRecipeVC(vm: editVM), animated: true)
     }
 
     private func makeSectionHeader(_ text: String) -> UIView {
@@ -69,7 +136,6 @@ final class RecipeDetailVC: UIViewController {
         l.textColor = .ink
         return l
     }
-
     private func makeBullet(_ text: String) -> UIView {
         let l = UILabel()
         l.text = text
@@ -78,7 +144,6 @@ final class RecipeDetailVC: UIViewController {
         l.numberOfLines = 0
         return l
     }
-
     private func makeRule() -> UIView {
         let v = UIView()
         v.backgroundColor = .rule
