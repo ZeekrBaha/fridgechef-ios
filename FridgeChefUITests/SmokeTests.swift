@@ -17,8 +17,16 @@ final class SmokeTests: XCTestCase {
         let app = launch()
         XCTAssertTrue(app.textFields["catalog.input"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["catalog.header"].exists)
-        let magic = app.buttons["catalog.magic"]
-        XCTAssertTrue(magic.exists)
+        XCTAssertTrue(app.buttons["catalog.magic"].exists)
+
+        // All four category cards visible on launch.
+        for id in ["catalog.card.breakfast",
+                   "catalog.card.lunch",
+                   "catalog.card.dinner",
+                   "catalog.card.fridge"] {
+            let cell = app.descendants(matching: .any).matching(identifier: id).firstMatch
+            XCTAssertTrue(cell.exists, "Catalog card \(id) should be visible")
+        }
     }
 
     func test_recipes_emptyState_visibleOnFreshLaunch() {
