@@ -58,16 +58,83 @@ private final class UITestStubClient: OpenAIClientProtocol {
     }
 }
 
+@MainActor
 private final class UITestStubStore: RecipeStoreProtocol {
     private var batches: [RecipeBatch] = []
-    func save(_ batch: RecipeBatch) async throws { batches.insert(batch, at: 0) }
+
+    func save(_ batch: RecipeBatch) async throws {
+        batches.insert(batch, at: 0)
+        postChanged()
+    }
     func allBatches() async throws -> [RecipeBatch] { batches }
     func batch(id: UUID) async throws -> RecipeBatch? { batches.first { $0.id == id } }
-    func deleteAll() async throws { batches = [] }
-    func update(_ recipe: Recipe, in batchId: UUID) async throws { }
-    func setFavorite(recipeId: UUID, isFavorite: Bool) async throws { }
-    func delete(recipeId: UUID) async throws { }
-    func delete(batchId: UUID) async throws { }
+    func deleteAll() async throws { batches = []; postChanged() }
+
+    func update(_ recipe: Recipe, in batchId: UUID) async throws {
+        guard let bi = batches.firstIndex(where: { $0.id == batchId }),
+              let ri = batches[bi].recipes.firstIndex(where: { $0.id == recipe.id }) else {
+            throw RecipeStoreError.notFound
+        }
+        var recipes = batches[bi].recipes
+        recipes[ri] = recipe
+        let old = batches[bi]
+        batches[bi] = RecipeBatch(id: old.id, createdAt: old.createdAt,
+                                  inputIngredients: old.inputIngredients,
+                                  inputImageThumbnailJPEG: old.inputImageThumbnailJPEG,
+                                  recipes: recipes, source: old.source)
+        postChanged()
+    }
+
+    func setFavorite(recipeId: UUID, isFavorite: Bool) async throws {
+        for (bi, batch) in batches.enumerated() {
+            guard let ri = batch.recipes.firstIndex(where: { $0.id == recipeId }) else { continue }
+            var recipes = batch.recipes
+            let old = recipes[ri]
+            recipes[ri] = Recipe(id: old.id, title: old.title, description: old.description,
+                                 ingredients: old.ingredients, steps: old.steps,
+                                 estimatedTime: old.estimatedTime, isFavorite: isFavorite,
+                                 updatedAt: old.updatedAt)
+            batches[bi] = RecipeBatch(id: batch.id, createdAt: batch.createdAt,
+                                      inputIngredients: batch.inputIngredients,
+                                      inputImageThumbnailJPEG: batch.inputImageThumbnailJPEG,
+                                      recipes: recipes, source: batch.source)
+            postChanged()
+            return
+        }
+        throw RecipeStoreError.notFound
+    }
+
+    func delete(recipeId: UUID) async throws {
+        for (bi, batch) in batches.enumerated() {
+            guard let ri = batch.recipes.firstIndex(where: { $0.id == recipeId }) else { continue }
+            var recipes = batch.recipes
+            recipes.remove(at: ri)
+            if recipes.isEmpty {
+                batches.remove(at: bi)
+            } else {
+                let old = batch
+                batches[bi] = RecipeBatch(id: old.id, createdAt: old.createdAt,
+                                          inputIngredients: old.inputIngredients,
+                                          inputImageThumbnailJPEG: old.inputImageThumbnailJPEG,
+                                          recipes: recipes, source: old.source)
+            }
+            postChanged()
+            return
+        }
+        throw RecipeStoreError.notFound
+    }
+
+    func delete(batchId: UUID) async throws {
+        guard let idx = batches.firstIndex(where: { $0.id == batchId }) else {
+            throw RecipeStoreError.notFound
+        }
+        batches.remove(at: idx)
+        postChanged()
+    }
+
+    private func postChanged() {
+        NotificationCenter.default.post(name: .recipesDidChange, object: nil)
+    }
 }
 
 @MainActor

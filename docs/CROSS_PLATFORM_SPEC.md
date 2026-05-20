@@ -4,7 +4,7 @@
 
 **Reference implementation:** `~/Desktop/llm-ai-projects/recipe-ingredients-ios/`
 **Reference platform:** iOS 17+, UIKit, MVVM + Combine, Core Data
-**Last reconciled with code:** 2026-05-19
+**Last reconciled with code:** 2026-05-20 (cookbook phase 1 + Recipes tab redesign)
 
 ---
 
@@ -18,6 +18,16 @@ FridgeChef is a single-purpose recipe assistant. From the Home (Catalog) tab a u
 4. Tap the **magic** button → get 3 random recipes (random meal × random style)
 
 Each generated batch lands on a `RecipeBatch` screen (3 cards), tapping a card opens `RecipeDetail`. Batches persist locally and are browsable in the Recipes tab. A Settings tab handles theme + API key status.
+
+The **Recipes tab is a full personal cookbook**, not just AI history:
+
+- **Create** a recipe from scratch (`+` button → `CreateEditRecipe` form). A user-created recipe is stored as a single-recipe batch with `source = .user`.
+- **Edit** any recipe (AI or user) via the Edit button on `RecipeDetail`.
+- **Favorite / unfavorite** individual recipes (heart toggle on `RecipeDetail`).
+- **Filter** the list with an All / Favorites segmented control.
+- **Delete**: swipe a batch row in Recipes, swipe a recipe card in `RecipeBatch`, or "Clear all recipes" in Settings.
+
+Each batch carries a `source` (`.ai` or `.user`). In the Recipes list, a single-recipe **user** batch shows the recipe's real name and taps straight through to `RecipeDetail` (the intermediate batch screen is skipped — Edit is one tap away); multi-recipe **AI** batches still open the `RecipeBatch` 3-card screen.
 
 There is **no account, no backend, no cloud sync**. The OpenAI key is baked into the build at compile time. All persistence is local.
 
@@ -48,21 +58,31 @@ flowchart LR
 
     Batch -->|tap card| Detail[RecipeDetailVC]
 
-    Recipes -->|tap batch row| Batch
+    Recipes -->|tap AI batch row| Batch
+    Recipes -->|tap single user-recipe row| Detail
+    Recipes -->|tap + button| CreateEdit[CreateEditRecipeVC<br/>new]
+    Recipes -->|All / Favorites filter| Recipes
+    Recipes -->|swipe row → Delete| Recipes
+    CreateEdit -->|save| Recipes
+
+    Detail -->|tap Edit| CreateEdit2[CreateEditRecipeVC<br/>edit]
+    Detail -->|tap heart| Detail
+    CreateEdit2 -->|save| Detail
 
     Settings -->|theme picker| Settings
     Settings -->|clear all recipes| Settings
 ```
 
-Five distinct screens (plus the modal photo picker and the alert):
+Six distinct screens (plus the modal photo picker and the alert):
 
 | Screen | Owning VC | Tab | Notes |
 |---|---|---|---|
 | Recipe Catalog | `CatalogVC` | Home (1st) | Always the entry point |
-| Recipes history | `RecipesVC` | Recipes (2nd) | Sectioned list of past batches |
+| Recipes cookbook | `RecipesVC` | Recipes (2nd) | Sectioned list; `+` create, All/Favorites filter, swipe-delete |
 | Settings | `SettingsVC` | Settings (3rd) | Theme, key status, clear-all |
-| Recipe Batch | `RecipeBatchVC` | (pushed) | 3 cards from one generation |
-| Recipe Detail | `RecipeDetailVC` | (pushed) | Full recipe |
+| Recipe Batch | `RecipeBatchVC` | (pushed) | 3 cards from one AI generation; swipe a card to delete |
+| Recipe Detail | `RecipeDetailVC` | (pushed) | Full recipe; Edit + favorite buttons |
+| Create / Edit Recipe | `CreateEditRecipeVC` | (pushed) | Scrollable form; `Mode.new` (from Recipes `+`) or `Mode.edit` (from Detail) |
 
 The tab bar uses **outline SF Symbols**: `house`, `square.grid.2x2`, `slider.horizontal.3` — see §7 for cross-platform equivalents.
 
@@ -152,6 +172,77 @@ sequenceDiagram
 
 Failure is silent: if the fetch errors, cards keep showing whatever was last cached (or "Loading…" until first success).
 
+### 3.6 Flow F — create a recipe from scratch
+
+```mermaid
+sequenceDiagram
+    actor User
+    User->>RecipesVC: tap + button
+    RecipesVC->>CreateEditRecipeVC: push (Mode.new)
+    User->>CreateEditRecipeVC: fill title, ingredients, steps (+ optional description, time)
+    CreateEditRecipeVC->>CreateEditRecipeVM: field edits → CombineLatest3 validation
+    CreateEditRecipeVM-->>CreateEditRecipeVC: isValid → enable Save
+    User->>CreateEditRecipeVC: tap Save
+    CreateEditRecipeVC->>CreateEditRecipeVM: save()
+    CreateEditRecipeVM->>RecipeStore: save(batch source:.user, recipes:[recipe])
+    RecipeStore-->>NotificationCenter: post .recipesDidChange
+    CreateEditRecipeVM-->>CreateEditRecipeVC: saveState = .saved → pop
+    NotificationCenter-->>RecipesVM: reload → new row appears
+```
+
+Validation rule (`CreateEditRecipeVM`): Save is enabled only when the trimmed title is non-empty **and** at least one non-empty ingredient **and** at least one non-empty step exist. A user recipe is persisted as a one-recipe batch with `source = .user` and empty `inputIngredients`.
+
+### 3.7 Flow G — edit any recipe (AI or user)
+
+```mermaid
+sequenceDiagram
+    actor User
+    User->>RecipeDetailVC: tap Edit
+    RecipeDetailVC->>CreateEditRecipeVC: push (Mode.edit(existing, batchId))
+    User->>CreateEditRecipeVC: change fields
+    User->>CreateEditRecipeVC: tap Save
+    CreateEditRecipeVC->>CreateEditRecipeVM: save()
+    CreateEditRecipeVM->>RecipeStore: update(recipe, in: batchId)
+    RecipeStore-->>NotificationCenter: post .recipesDidChange
+    CreateEditRecipeVC-->>RecipeDetailVC: pop
+    NotificationCenter-->>RecipeDetailVM: reload → detail shows new values
+```
+
+Editing mutates the recipe in place (same `id`), preserving its `isFavorite`. Works for both AI-generated and user recipes.
+
+### 3.8 Flow H — favorite / unfavorite
+
+```mermaid
+sequenceDiagram
+    actor User
+    User->>RecipeDetailVC: tap heart (bottom toolbar)
+    RecipeDetailVC->>RecipeDetailVM: toggleFavorite()
+    RecipeDetailVM->>RecipeDetailVM: isFavorite.toggle()  (optimistic)
+    RecipeDetailVM->>RecipeStore: setFavorite(recipeId, isFavorite)
+    alt success
+        RecipeStore-->>NotificationCenter: post .recipesDidChange
+    else error
+        RecipeDetailVM->>RecipeDetailVM: revert isFavorite; emit lastError
+        RecipeDetailVC->>User: error alert
+    end
+```
+
+The toggle is **optimistic**: the heart flips immediately, then reverts only if the store write fails. Heart icon: `heart` (outline) ↔ `heart.fill`, tinted `terracotta`.
+
+### 3.9 Flow I — filter All / Favorites
+
+`RecipesVC` has a 2-segment control (All / Favorites). Selecting Favorites sets `RecipesVM.filter = .favorites`; `visibleGroups` (a `CombineLatest` of `groups` and `filter`) recomputes to show only batches that contain at least one favorited recipe, with non-favorited recipes trimmed out of each batch. All shows everything.
+
+### 3.10 Flow J — delete
+
+Three entry points, all converging on `RecipeStore` deletes that post `.recipesDidChange`:
+
+| Entry point | Call | Scope |
+|---|---|---|
+| Swipe a row in `RecipesVC` → Delete (confirm alert) | `RecipeStore.delete(batchId:)` | Whole batch |
+| Swipe a card in `RecipeBatchVC` → Delete (confirm alert) | `RecipeStore.delete(recipeId:)` | One recipe; if it was the batch's last recipe, the batch is removed and `RecipeBatchVM` transitions to `.gone` → VC pops |
+| Settings → "Clear all recipes" (confirm "Clear all") | `RecipeStore.deleteAll()` | Everything |
+
 ---
 
 ## 4. Design system
@@ -205,9 +296,15 @@ Ad-hoc sizes used outside the ramp (recipe surfaces):
 | `RecipeDetailVC` | time | DM Sans Medium | 13 |
 | `RecipeDetailVC` | section header | Fraunces 72pt Bold | 22 |
 | `RecipeDetailVC` | body text | DM Sans Regular | 16 |
-| `RecipesBatchCell` | primary | DM Sans Medium | 16 |
-| `RecipesBatchCell` | secondary | DM Sans Regular | 13 |
-| `RecipesVC` | section header | DM Sans Medium | 12 |
+| `RecipesBatchCell` | title (recipe name / query) | Fraunces 72pt Bold | 17 |
+| `RecipesBatchCell` | meta line ("N recipes · time") | DM Sans Regular | 12 |
+| `RecipesBatchCell` | chips (ingredients / recipe names) | DM Sans Medium | 11 |
+| `RecipesVC` | section header | DM Sans Medium | 11 |
+| `RecipesVC` | empty-state title | Fraunces 72pt Bold | 20 |
+| `RecipesVC` | empty-state subtitle | DM Sans Regular | 15 |
+| `CreateEditRecipeVC` | title field | Fraunces 72pt Bold | 22 |
+| `CreateEditRecipeVC` | section labels ("TITLE *", etc.) | DM Sans Medium | 12 (uppercased) |
+| `CreateEditRecipeVC` | body fields (desc/ingredient/step/time) | DM Sans Regular | 16 |
 
 **Launch screen exception:** `FridgeChef` wordmark renders in **Fraunces 72pt Bold @ 44pt**. iOS pre-registers `UIAppFonts` so the storyboard label can resolve `Fraunces72pt-Bold`. On platforms where the launch screen can't load custom fonts, substitute a serif system font (Android: `serif-monospace`/`Roboto Serif`, Flutter: `Theme.of(context).textTheme.displayLarge` with a serif), or render a bundled SVG/PNG wordmark.
 
@@ -301,6 +398,49 @@ Circular `UIButton`, 56×56, corner radius 28, background `terracotta`, tint whi
 
 Static. Paper background. Wordmark "FridgeChef" centered (Fraunces 72pt Bold @ 44pt, color `ink`), translated up 20pt from view center. 60×2pt sage hairline directly below the wordmark, 20pt gap.
 
+### 5.7 `RecipesBatchCell` (cookbook list row)
+
+The row in the Recipes tab. A grouped-list cell (iOS `insetGrouped`), background `paper2`, swipe-to-delete enabled.
+
+| Element | Spec |
+|---|---|
+| Accent strip | 3pt-wide vertical bar, 1.5pt corner, inset 16pt from leading; **`terracotta` if `source == .user`, `sage` if `.ai`** |
+| Title | Fraunces 17 bold, `ink`, max 2 lines. Single-recipe user batch → the recipe's name; AI batch with a query → the joined `inputIngredients`; otherwise "Your recipes" / "Generated recipes" |
+| Meta line | DM Sans 12, `inkSoft`: `"<N> recipe(s) · <h:mm a>"` |
+| Favorite heart | `heart.fill` SF Symbol, 12pt, `terracotta`, trailing; shown only if any recipe in the batch is favorited |
+| Chips | Up to 3 pills + a `+N` overflow pill. DM Sans 11 medium, `inkSoft`, background `ink @ 7%`, 8pt corner. Single-recipe user batch → the recipe's ingredients; otherwise the recipe names |
+
+Tap behavior (see §3): single-recipe `.user` batch → push `RecipeDetailVC` directly; otherwise → push `RecipeBatchVC`.
+
+### 5.8 Recipes empty state
+
+When the list (for the active filter) is empty, show a centered `UIContentUnavailableConfiguration`:
+
+| Element | Spec |
+|---|---|
+| Icon | `fork.knife.circle` (All) or `heart.circle` (Favorites), SF Symbol 52pt thin, `inkSoft` |
+| Title | Fraunces 20 bold, `ink` — "No recipes yet" / "No favorites yet" |
+| Subtitle | DM Sans 15, `inkSoft` — "Tap + to add one, or generate from Home." / "Tap the heart on a recipe to favorite it." |
+
+### 5.9 `CreateEditRecipeVC` (create / edit form)
+
+Scrollable vertical form inside a `UIScrollView`. `Mode.new` (blank) or `Mode.edit` (prefilled). Nav bar: leading **Cancel**, trailing **Save** (disabled until valid). Field blocks top-to-bottom, each preceded by an uppercased section label (DM Sans 12 medium, `inkSoft`):
+
+| Block | Control | Notes |
+|---|---|---|
+| Title * | single-line field, Fraunces 22 bold | Required |
+| Description | multi-line `UITextView` with floating placeholder | Optional; placeholder hides when non-empty |
+| Ingredients | dynamic rows; each row = text field + `minus.circle.fill` remove (terracotta); "+ Add ingredient" button (`sage`) | ≥1 non-empty required; remove disabled when only 1 row |
+| Steps | same dynamic-row pattern as ingredients | ≥1 non-empty required |
+| Estimated Time | single-line field, DM Sans 16 | Optional, free-form ("30 min") |
+
+Field cards: `paper2` background, 12pt corner. Cancel with unsaved edits → "Discard changes?" confirm. Save shows a "Couldn't save" alert on store error.
+
+### 5.10 `RecipeDetail` action placement
+
+- **Edit** — single trailing nav-bar button (text, system tint). The only nav-bar content control (per HIG).
+- **Favorite** — heart in a **bottom toolbar** (`heart` ↔ `heart.fill`, `terracotta`), centered. The tab bar is hidden while a recipe is open (`hidesBottomBarWhenPushed`), matching Photos/News. Port equivalents: Android bottom app bar / `BottomAppBar` action; Flutter `BottomAppBar`; RN a bottom action bar with the tab bar hidden on the detail route.
+
 ---
 
 ## 6. State machines
@@ -333,11 +473,39 @@ Five generation entry points all converge on `private func run(_ fetch: @escapin
   - else → call `OpenAIClient.dailyPicks()`, write to UserDefaults, publisher emits the fresh value
 - On error → silent (log internally, publisher does not emit a fresh value; consumers keep last cached or `nil`)
 
+### 6.3 `CreateEditRecipeVM.SaveState`
+
+```
+.idle
+   ↓ save()
+.saving           — Save button disabled
+   ↓ success         ↓ error
+.saved(recipe)    .error(message)
+   ↓ pop VC          ↓ alert; Save re-enabled if still valid
+```
+
+Separately, `isValid` is a derived `@Published` (CombineLatest3 of title / ingredients / steps) driving the Save button's enabled state. `hasUnsavedChanges` compares the current field snapshot to the initial snapshot for the Cancel-confirm prompt.
+
+### 6.4 `RecipeBatchVM.BatchState`
+
+```
+.loaded(batch)    — normal; renders the 3 cards
+   ↓ deleteRecipe(id:) removes the batch's last recipe
+.gone             — RecipeBatchVC pops itself
+```
+
+After any `deleteRecipe`, the VM re-fetches the batch by id; if it no longer exists (cascade removed it), it transitions to `.gone`. This sentinel avoids a crash when the navigated-into batch disappears underneath the screen.
+
+### 6.5 `RecipesVM.Filter` and `RecipeDetailVM`
+
+- `RecipesVM.filter`: `.all` / `.favorites`. `visibleGroups = CombineLatest(groups, filter)` — Favorites trims each batch to only its favorited recipes and drops empty batches. Reloads on `.recipesDidChange`.
+- `RecipeDetailVM`: `@Published isFavorite` (optimistic toggle with revert on error, §3.8) + `@Published recipe` that reloads from the store on `.recipesDidChange` (so an edit reflects immediately). `lastError` drives a one-shot alert.
+
 ---
 
 ## 7. Icon catalog
 
-Every iconographic element is an Apple SF Symbol. None are bundled as images. Five icons total.
+Every iconographic element is an Apple SF Symbol. None are bundled as images. Nine icons total.
 
 | Where | SF Symbol (iOS) | Material Symbol (Android) | Lucide (web/RN) | Notes |
 |---|---|---|---|---|
@@ -346,6 +514,10 @@ Every iconographic element is an Apple SF Symbol. None are bundled as images. Fi
 | Settings tab bar | `slider.horizontal.3` | `tune` | `sliders-horizontal` | Outlined |
 | Magic button | `sparkles` | `auto_awesome` | `sparkles` | Filled-style on terracotta circle |
 | Loading overlay | `frying.pan.fill` (fallback `fork.knife`) | `outdoor_grill` / `restaurant` | `cooking-pot` / `chef-hat` | Kitchen-themed |
+| Recipes create | `plus` (nav bar `.add`) | `add` | `plus` | Opens CreateEditRecipe (new) |
+| Favorite toggle | `heart` ↔ `heart.fill` | `favorite_border` ↔ `favorite` | `heart` | `terracotta`; detail toolbar + batch-row badge |
+| Remove form row | `minus.circle.fill` | `remove_circle` | `minus-circle` | `terracotta`; ingredient/step row delete |
+| Empty state | `fork.knife.circle` / `heart.circle` | `restaurant` / `favorite_border` | `utensils` / `heart` | 52pt thin, `inkSoft` |
 
 No image assets in `Assets.xcassets` — there is no asset catalog. **All graphic UI elements are either system symbols, dynamic UIColor blocks, or text rendered in Fraunces/DM Sans.** A port can rely on platform-native icon sets without redrawing anything.
 
@@ -465,16 +637,17 @@ Local-only. No cloud sync.
 
 Two entities. Translate as two SQLite tables on Android / Flutter / RN (e.g. Room, Drift, WatermelonDB):
 
-**`recipe_batch`**
+**`recipe_batch`** (Core Data entity `RecipeBatchEntity`)
 
 | Column | Type | Required | Notes |
 |---|---|---|---|
 | `id` | UUID | yes | PK |
 | `created_at` | Date/timestamp | yes | Used for grouping in Recipes tab |
-| `input_ingredients_json` | TEXT (JSON `[String]`) | yes | Empty `[]` if generation was from dish name / meal / image |
+| `input_ingredients_json` | TEXT (JSON `[String]`) | yes | Empty `[]` if generation was from dish name / meal / image, or for a user-created recipe |
 | `input_image_thumbnail_jpeg` | BLOB | optional | Stored if generation was from a fridge photo |
+| `source` | TEXT enum (`ai` / `user`) | yes | **v2.** Default `ai`. `user` = created from scratch via the form (always a single-recipe batch) |
 
-**`recipe`**
+**`recipe`** (Core Data entity `RecipeEntity`)
 
 | Column | Type | Required | Notes |
 |---|---|---|---|
@@ -485,9 +658,13 @@ Two entities. Translate as two SQLite tables on Android / Flutter / RN (e.g. Roo
 | `ingredients_json` | TEXT (JSON `[String]`) | yes | |
 | `steps_json` | TEXT (JSON `[String]`) | yes | |
 | `estimated_time` | TEXT | yes | Free-form ("30 min", "1 hour") |
-| `order` | Int16 | yes | Display order within batch (0..2) |
+| `order` | Int16 | yes | Display order within batch (AI batches 0..2; user batch 0) |
+| `is_favorite` | Boolean | yes | **v2.** Default `false` |
+| `updated_at` | Date/timestamp | optional | **v2.** Set on edit (currently written as `nil`/unused by the iOS edit path; reserved) |
 
 Ordering: `recipes` is an *ordered* relationship; preserve via the `order` column.
+
+**Migration note (iOS):** the schema bumped from Core Data model **v1 → v2** by adding a *new model version* (`FridgeChef v2.xcdatamodel`) with the three new attributes and safe defaults (`source="ai"`, `is_favorite=false`) — a lightweight migration. Don't edit the v1 model in place; existing v1 stores migrate automatically. On a port, ship the equivalent additive migration (new nullable/defaulted columns) rather than a destructive recreate.
 
 ### 9.2 UserDefaults / preferences
 
@@ -550,6 +727,7 @@ flowchart TB
         Batch[RecipeBatchVC]
         Detail[RecipeDetailVC]
         Recipes[RecipesVC]
+        CreateEdit[CreateEditRecipeVC]
         Settings[SettingsVC]
         Launch[LaunchScreen]
     end
@@ -559,6 +737,7 @@ flowchart TB
         RBVM[RecipeBatchVM]
         RDVM[RecipeDetailVM]
         RVM[RecipesVM]
+        CEVM[CreateEditRecipeVM]
         SVM[SettingsVM]
     end
 
@@ -580,6 +759,7 @@ flowchart TB
     Batch --> RBVM
     Detail --> RDVM
     Recipes --> RVM
+    CreateEdit --> CEVM
     Settings --> SVM
 
     CVM --> OAC
@@ -589,6 +769,8 @@ flowchart TB
     DPS --> UD
     RBVM --> RS
     RVM --> RS
+    RDVM --> RS
+    CEVM --> RS
     SVM --> TM
     SVM --> RS
     SVM --> APK
@@ -620,21 +802,27 @@ Adapt this to the target platform's idioms:
 
 ## 13. Test coverage targets
 
-A port should match the iOS test count (52 total) shape, not the exact assertions:
+A port should match the iOS test count (**75 total — 67 unit + 8 UI**) shape, not the exact assertions:
 
 | Layer | Tests |
 |---|---|
 | `CatalogVM` | 6 (text generate / each meal type / image / surprise / error) |
+| `CreateEditRecipeVM` | 6 (title required / ≥1 ingredient+step / save new / save edit / hasChanges / revert) |
+| `RecipeBatchVM` | 4 (init / headerDate / deleteRecipe→gone / deleteRecipe→remaining) |
+| `RecipeDetailVM` | 3 (passthrough / toggleFavorite / revert on error) |
+| `RecipesVM` | 6 (empty / grouping / filter / reload / deleteBatch / notification) |
+| `RecipeStore` (in-memory) | 11 (save / load / byId / deleteAll / order / setFavorite / update / deleteRecipe / deleteBatch / cascade / notFound) |
+| `OpenAIClient` (URLProtocol-stubbed) | 14 — request shape + decode + 4xx/5xx mapping for ingredients / image / dishName / forMeal / dailyPicks |
 | `DailyPicksService` | 4 (cold fetch / same-day cache hit / next-day refresh / silent error) |
-| `OpenAIClient` (URLProtocol-stubbed) | 13 — request shape + response decode + 4xx/5xx mapping for ingredients / image / dishName / forMeal / dailyPicks |
-| `RecipeStore` (in-memory) | 5 — save / load / byId / deleteAll / ordering |
-| `RecipesVM` | 3 |
+| `DailyPicks` (model) | 2 |
 | `SettingsVM` | 4 |
 | `ThemeManager` (custom prefs) | 4 |
 | `APIKeyProvider` (custom bundle) | 3 |
-| `RecipeBatchVM` | 2 |
-| `RecipeDetailVM` | 1 |
-| Smoke / UI | 3 — catalog cards present, recipes empty state, theme toggle |
+| Smoke / UI (XCUITest) | 8 — catalog cards present, recipes empty state, theme toggle, create button opens form, save-button enablement, created recipe appears, edit updates title, delete removes from list |
+
+Notes for porters:
+- The favorite toggle, filter, and cascade-delete behaviors each have dedicated VM/store tests — port them, they catch real regressions (e.g. cascade delete leaving orphan recipes, optimistic-toggle revert).
+- The delete UI test deletes via Settings "Clear all recipes" rather than a swipe, because grouped-list trailing swipe actions are not reliably triggerable in XCUITest. Use a tappable delete affordance for deterministic UI tests on any platform.
 
 ---
 
@@ -660,6 +848,7 @@ A port should match the iOS test count (52 total) shape, not the exact assertion
 - Cooking-themed loading icon — `frying.pan.fill` is iOS-only. Material has `outdoor_grill`, Lucide has `cooking-pot`. The animation (1.6s continuous rotation) translates directly.
 - Tab bar vs bottom nav vs nav rail — iOS uses 3-tab `UITabBarController`. Android Compose: `NavigationBar`. Flutter: `BottomNavigationBar`. RN: `@react-navigation/bottom-tabs`.
 - Modal vs full-screen photo picker — match the platform convention.
+- Favorite placement on the recipe detail — iOS puts the heart in a **bottom toolbar** and hides the tab bar on the leaf screen (Photos/News convention; nav bar keeps only Edit). Map to the platform's leaf-screen idiom: Android can hide the bottom nav and use a `BottomAppBar` or a top-app-bar action; Flutter a `BottomAppBar` with the nav bar hidden on the route; RN a bottom action bar with the tab bar hidden for the detail route. Avoid two competing actions in the top bar.
 
 ---
 
@@ -674,7 +863,8 @@ A port should match the iOS test count (52 total) shape, not the exact assertion
 | Catalog screen | `FridgeChef/Features/Catalog/View/CatalogVC.swift`, `CategoryCardCell.swift`, `ViewModel/CatalogVM.swift` |
 | Recipe batch screen | `FridgeChef/Features/RecipeBatch/View/RecipeBatchVC.swift`, `RecipeBatchCardCell.swift` |
 | Recipe detail | `FridgeChef/Features/RecipeDetail/View/RecipeDetailVC.swift` |
-| Recipes history | `FridgeChef/Features/Recipes/View/RecipesVC.swift`, `RecipesBatchCell.swift` |
+| Recipes cookbook | `FridgeChef/Features/Recipes/View/RecipesVC.swift`, `RecipesBatchCell.swift`, `ViewModel/RecipesVM.swift` |
+| Create / edit form | `FridgeChef/Features/CreateEditRecipe/View/CreateEditRecipeVC.swift`, `ViewModel/CreateEditRecipeVM.swift` |
 | Settings | `FridgeChef/Features/Settings/View/SettingsVC.swift`, `ViewModel/SettingsVM.swift` |
 | Launch screen | `FridgeChef/App/LaunchScreen.storyboard`, `Info.plist::UILaunchStoryboardName` |
 | Tab bar | `FridgeChef/App/RootTabBarController.swift` |
@@ -685,12 +875,15 @@ A port should match the iOS test count (52 total) shape, not the exact assertion
 | RecipeStore | `FridgeChef/Services/Persistence/RecipeStore.swift` |
 | ThemeManager | `FridgeChef/Services/Theme/ThemeManager.swift` |
 | DailyPicksService | `FridgeChef/Services/DailyPicks/DailyPicksService.swift` |
-| Value types | `FridgeChef/SharedModels/{Recipe,RecipeBatch,MealType,RecipeStyle,DailyPicks}.swift` |
+| Value types | `FridgeChef/SharedModels/{Recipe,RecipeBatch,RecipeSource,MealType,RecipeStyle,DailyPicks}.swift` |
 | Dependency container | `FridgeChef/App/Dependencies.swift` |
 | Project generator config | `project.yml` |
 | v1 design spec | `docs/superpowers/specs/2026-05-18-fridgechef-ios-v1-design.md` |
 | v1.1 catalog spec | `docs/superpowers/specs/2026-05-18-fridgechef-catalog-redesign-design.md` |
 | v1.1 catalog plan | `docs/superpowers/plans/2026-05-18-fridgechef-catalog-redesign.md` |
+| v1.2 cookbook spec | `docs/superpowers/specs/2026-05-19-fridgechef-cookbook-phase1-design.md` |
+| v1.2 cookbook plan | `docs/superpowers/plans/2026-05-19-fridgechef-cookbook-phase1.md` |
+| Core Data v2 model | `FridgeChef/Services/Persistence/FridgeChef.xcdatamodeld/FridgeChef v2.xcdatamodel/contents` |
 
 ---
 

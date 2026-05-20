@@ -37,8 +37,8 @@ final class CreateEditRecipeVC: UIViewController {
         case .new: title = "New Recipe"
         case .edit: title = "Edit Recipe"
         }
-        navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel,
-                                                           target: self, action: #selector(cancelTapped))
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .cancel, target: self, action: #selector(cancelTapped))
         navigationItem.rightBarButtonItem = saveButton
 
         setupScroll()
@@ -46,14 +46,16 @@ final class CreateEditRecipeVC: UIViewController {
         bind()
     }
 
+    // MARK: - Layout
+
     private func setupScroll() {
+        scrollView.keyboardDismissMode = .interactive
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scrollView)
 
         formStack.axis = .vertical
-        formStack.spacing = Spacing.s16
-        formStack.layoutMargins = UIEdgeInsets(top: Spacing.s24, left: Spacing.s24,
-                                               bottom: Spacing.s24, right: Spacing.s24)
+        formStack.spacing = 6
+        formStack.layoutMargins = UIEdgeInsets(top: 20, left: 16, bottom: 32, right: 16)
         formStack.isLayoutMarginsRelativeArrangement = true
         formStack.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(formStack)
@@ -73,18 +75,22 @@ final class CreateEditRecipeVC: UIViewController {
     }
 
     private func buildForm() {
-        formStack.addArrangedSubview(makeSectionHeader("Title *"))
-        titleField.font = Typography.fraunces(28, weight: .bold)
+        // TITLE
+        formStack.addArrangedSubview(makeSectionLabel("Title *"))
+        titleField.font = Typography.fraunces(22, weight: .bold)
         titleField.textColor = .ink
         titleField.placeholder = "Recipe title"
         titleField.accessibilityIdentifier = "create.title.field"
         titleField.accessibilityLabel = "Recipe title"
         titleField.borderStyle = .none
+        titleField.backgroundColor = .clear
         titleField.addTarget(self, action: #selector(titleChanged), for: .editingChanged)
-        formStack.addArrangedSubview(titleField)
-        formStack.addArrangedSubview(makeRule())
+        let titleCard = makeFieldCard(titleField, minHeight: 52)
+        formStack.addArrangedSubview(titleCard)
+        formStack.setCustomSpacing(20, after: titleCard)
 
-        formStack.addArrangedSubview(makeSectionHeader("Description"))
+        // DESCRIPTION
+        formStack.addArrangedSubview(makeSectionLabel("Description"))
         descriptionView.font = Typography.dmSans(16)
         descriptionView.textColor = .ink
         descriptionView.backgroundColor = .clear
@@ -92,10 +98,10 @@ final class CreateEditRecipeVC: UIViewController {
         descriptionView.accessibilityIdentifier = "create.description.field"
         descriptionView.accessibilityLabel = "Description"
         descriptionView.delegate = self
-        descriptionView.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
+
         descriptionPlaceholder.text = "Optional notes, backstory, or cooking tips…"
         descriptionPlaceholder.font = Typography.dmSans(16)
-        descriptionPlaceholder.textColor = .tertiaryLabel
+        descriptionPlaceholder.textColor = UIColor.ink.withAlphaComponent(0.35)
         descriptionPlaceholder.numberOfLines = 0
         descriptionPlaceholder.translatesAutoresizingMaskIntoConstraints = false
         descriptionPlaceholder.isUserInteractionEnabled = false
@@ -105,41 +111,53 @@ final class CreateEditRecipeVC: UIViewController {
             descriptionPlaceholder.leadingAnchor.constraint(equalTo: descriptionView.leadingAnchor, constant: 5),
             descriptionPlaceholder.trailingAnchor.constraint(equalTo: descriptionView.trailingAnchor, constant: -5),
         ])
-        formStack.addArrangedSubview(descriptionView)
-        formStack.addArrangedSubview(makeRule())
+        let descCard = makeFieldCard(descriptionView, minHeight: 110)
+        descriptionView.heightAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
+        formStack.addArrangedSubview(descCard)
+        formStack.setCustomSpacing(20, after: descCard)
 
-        formStack.addArrangedSubview(makeSectionHeader("Ingredients"))
+        // INGREDIENTS
+        formStack.addArrangedSubview(makeSectionLabel("Ingredients"))
         ingredientsStack.axis = .vertical
-        ingredientsStack.spacing = Spacing.s8
-        formStack.addArrangedSubview(ingredientsStack)
-        addIngredientButton.setTitle("+ Add ingredient", for: .normal)
-        addIngredientButton.tintColor = .sage
-        addIngredientButton.accessibilityIdentifier = "create.ingredient.add"
+        ingredientsStack.spacing = 0
+        let ingredientsCard = makeListCard(
+            listStack: ingredientsStack,
+            addButton: addIngredientButton,
+            addButtonId: "create.ingredient.add",
+            addTitle: "+ Add ingredient"
+        )
         addIngredientButton.addTarget(self, action: #selector(addIngredientTapped), for: .touchUpInside)
-        formStack.addArrangedSubview(addIngredientButton)
-        formStack.addArrangedSubview(makeRule())
+        formStack.addArrangedSubview(ingredientsCard)
+        formStack.setCustomSpacing(20, after: ingredientsCard)
 
-        formStack.addArrangedSubview(makeSectionHeader("Steps"))
+        // STEPS
+        formStack.addArrangedSubview(makeSectionLabel("Steps"))
         stepsStack.axis = .vertical
-        stepsStack.spacing = Spacing.s8
-        formStack.addArrangedSubview(stepsStack)
-        addStepButton.setTitle("+ Add step", for: .normal)
-        addStepButton.tintColor = .sage
-        addStepButton.accessibilityIdentifier = "create.step.add"
+        stepsStack.spacing = 0
+        let stepsCard = makeListCard(
+            listStack: stepsStack,
+            addButton: addStepButton,
+            addButtonId: "create.step.add",
+            addTitle: "+ Add step"
+        )
         addStepButton.addTarget(self, action: #selector(addStepTapped), for: .touchUpInside)
-        formStack.addArrangedSubview(addStepButton)
-        formStack.addArrangedSubview(makeRule())
+        formStack.addArrangedSubview(stepsCard)
+        formStack.setCustomSpacing(20, after: stepsCard)
 
-        formStack.addArrangedSubview(makeSectionHeader("Estimated time"))
+        // TIME
+        formStack.addArrangedSubview(makeSectionLabel("Estimated Time"))
         timeField.font = Typography.dmSans(16)
         timeField.textColor = .ink
-        timeField.placeholder = "30 min"
+        timeField.placeholder = "e.g. 30 min"
         timeField.accessibilityIdentifier = "create.time.field"
         timeField.accessibilityLabel = "Estimated time"
         timeField.borderStyle = .none
+        timeField.backgroundColor = .clear
         timeField.addTarget(self, action: #selector(timeChanged), for: .editingChanged)
-        formStack.addArrangedSubview(timeField)
+        let timeCard = makeFieldCard(timeField, minHeight: 52)
+        formStack.addArrangedSubview(timeCard)
 
+        // Populate
         titleField.text = vm.title
         descriptionView.text = vm.descriptionText
         descriptionPlaceholder.isHidden = !vm.descriptionText.isEmpty
@@ -148,43 +166,47 @@ final class CreateEditRecipeVC: UIViewController {
         rebuildStepRows()
     }
 
+    // MARK: - Dynamic rows
+
     private func rebuildIngredientRows() {
         ingredientsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for (idx, text) in vm.ingredients.enumerated() {
-            ingredientsStack.addArrangedSubview(makeRow(text: text,
-                                                       fieldId: "create.ingredient.row.\(idx).field",
-                                                       removeId: "create.ingredient.row.\(idx).remove",
-                                                       axLabel: "Ingredient \(idx + 1)",
-                                                       index: idx,
-                                                       isStep: false,
-                                                       canRemove: vm.ingredients.count > 1))
+            ingredientsStack.addArrangedSubview(makeRow(
+                text: text,
+                fieldId: "create.ingredient.row.\(idx).field",
+                removeId: "create.ingredient.row.\(idx).remove",
+                axLabel: "Ingredient \(idx + 1)",
+                index: idx,
+                isStep: false,
+                canRemove: vm.ingredients.count > 1
+            ))
         }
     }
 
     private func rebuildStepRows() {
         stepsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for (idx, text) in vm.steps.enumerated() {
-            stepsStack.addArrangedSubview(makeRow(text: text,
-                                                  fieldId: "create.step.row.\(idx).field",
-                                                  removeId: "create.step.row.\(idx).remove",
-                                                  axLabel: "Step \(idx + 1)",
-                                                  index: idx,
-                                                  isStep: true,
-                                                  canRemove: vm.steps.count > 1))
+            stepsStack.addArrangedSubview(makeRow(
+                text: text,
+                fieldId: "create.step.row.\(idx).field",
+                removeId: "create.step.row.\(idx).remove",
+                axLabel: "Step \(idx + 1)",
+                index: idx,
+                isStep: true,
+                canRemove: vm.steps.count > 1
+            ))
         }
     }
 
     private func makeRow(text: String, fieldId: String, removeId: String,
                          axLabel: String, index: Int, isStep: Bool, canRemove: Bool) -> UIView {
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.alignment = .center
-        row.spacing = Spacing.s8
+        let container = UIView()
 
         let field = UITextField()
         field.font = Typography.dmSans(16)
         field.textColor = .ink
-        field.borderStyle = .roundedRect
+        field.borderStyle = .none
+        field.backgroundColor = .clear
         field.text = text
         field.accessibilityIdentifier = fieldId
         field.accessibilityLabel = axLabel
@@ -192,7 +214,7 @@ final class CreateEditRecipeVC: UIViewController {
         field.addTarget(self,
                         action: isStep ? #selector(stepFieldChanged(_:)) : #selector(ingredientFieldChanged(_:)),
                         for: .editingChanged)
-        row.addArrangedSubview(field)
+        field.translatesAutoresizingMaskIntoConstraints = false
 
         let minus = UIButton(type: .system)
         minus.setImage(UIImage(systemName: "minus.circle.fill"), for: .normal)
@@ -205,12 +227,100 @@ final class CreateEditRecipeVC: UIViewController {
         minus.addTarget(self,
                         action: isStep ? #selector(removeStepRowTapped(_:)) : #selector(removeIngredientRowTapped(_:)),
                         for: .touchUpInside)
-        minus.widthAnchor.constraint(equalToConstant: 28).isActive = true
-        row.addArrangedSubview(minus)
-        return row
+        minus.translatesAutoresizingMaskIntoConstraints = false
+
+        container.addSubview(field)
+        container.addSubview(minus)
+        NSLayoutConstraint.activate([
+            minus.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            minus.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            minus.widthAnchor.constraint(equalToConstant: 24),
+            minus.heightAnchor.constraint(equalToConstant: 24),
+
+            field.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            field.trailingAnchor.constraint(equalTo: minus.leadingAnchor, constant: -8),
+            field.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            field.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12),
+            container.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+        ])
+
+        let sep = UIView()
+        sep.backgroundColor = .rule
+        sep.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(sep)
+        NSLayoutConstraint.activate([
+            sep.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            sep.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            sep.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            sep.heightAnchor.constraint(equalToConstant: 0.5),
+        ])
+
+        return container
     }
 
-    @objc private func titleChanged() { vm.title = titleField.text ?? "" }
+    // MARK: - UI Helpers
+
+    private func makeSectionLabel(_ text: String) -> UILabel {
+        let l = UILabel()
+        l.text = text.uppercased()
+        l.font = Typography.dmSans(12, weight: .medium)
+        l.textColor = .inkSoft
+        return l
+    }
+
+    private func makeFieldCard(_ field: UIView, minHeight: CGFloat = 44) -> UIView {
+        let card = UIView()
+        card.backgroundColor = .paper2
+        card.layer.cornerRadius = 12
+        card.clipsToBounds = true
+        field.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(field)
+        NSLayoutConstraint.activate([
+            field.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
+            field.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
+            field.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
+            field.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -12),
+            card.heightAnchor.constraint(greaterThanOrEqualToConstant: minHeight),
+        ])
+        return card
+    }
+
+    private func makeListCard(listStack: UIStackView, addButton: UIButton,
+                              addButtonId: String, addTitle: String) -> UIView {
+        let card = UIStackView()
+        card.axis = .vertical
+        card.spacing = 0
+        card.backgroundColor = .paper2
+        card.layer.cornerRadius = 12
+        card.clipsToBounds = true
+
+        card.addArrangedSubview(listStack)
+
+        addButton.setTitle(addTitle, for: .normal)
+        addButton.tintColor = .sage
+        addButton.accessibilityIdentifier = addButtonId
+        addButton.contentHorizontalAlignment = .leading
+
+        let addRow = UIView()
+        addRow.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        addButton.translatesAutoresizingMaskIntoConstraints = false
+        addRow.addSubview(addButton)
+        NSLayoutConstraint.activate([
+            addButton.leadingAnchor.constraint(equalTo: addRow.leadingAnchor, constant: 16),
+            addButton.centerYAnchor.constraint(equalTo: addRow.centerYAnchor),
+            addButton.trailingAnchor.constraint(equalTo: addRow.trailingAnchor, constant: -16),
+        ])
+        card.addArrangedSubview(addRow)
+
+        return card
+    }
+
+    // MARK: - Actions
+
+    @objc private func titleChanged() {
+        vm.title = titleField.text ?? ""
+        syncSaveButton()
+    }
     @objc private func timeChanged() { vm.estimatedTime = timeField.text ?? "" }
 
     @objc private func ingredientFieldChanged(_ sender: UITextField) {
@@ -218,12 +328,18 @@ final class CreateEditRecipeVC: UIViewController {
         guard arr.indices.contains(sender.tag) else { return }
         arr[sender.tag] = sender.text ?? ""
         vm.ingredients = arr
+        syncSaveButton()
     }
     @objc private func stepFieldChanged(_ sender: UITextField) {
         var arr = vm.steps
         guard arr.indices.contains(sender.tag) else { return }
         arr[sender.tag] = sender.text ?? ""
         vm.steps = arr
+        syncSaveButton()
+    }
+
+    private func syncSaveButton() {
+        saveButton.isEnabled = vm.isValid
     }
 
     @objc private func addIngredientTapped() {
@@ -259,6 +375,8 @@ final class CreateEditRecipeVC: UIViewController {
         Task { await vm.save() }
     }
 
+    // MARK: - Bindings
+
     private func bind() {
         vm.$isValid
             .sink { [weak self] in self?.saveButton.isEnabled = $0 }
@@ -283,21 +401,6 @@ final class CreateEditRecipeVC: UIViewController {
             present(alert, animated: true)
             saveButton.isEnabled = vm.isValid
         }
-    }
-
-    private func makeSectionHeader(_ text: String) -> UIView {
-        let l = UILabel()
-        l.text = text
-        l.font = Typography.fraunces(20, weight: .bold)
-        l.textColor = .ink
-        return l
-    }
-
-    private func makeRule() -> UIView {
-        let v = UIView()
-        v.backgroundColor = .rule
-        v.heightAnchor.constraint(equalToConstant: 1).isActive = true
-        return v
     }
 }
 

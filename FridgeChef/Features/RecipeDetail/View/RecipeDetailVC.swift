@@ -25,15 +25,27 @@ final class RecipeDetailVC: UIViewController {
     init(vm: RecipeDetailVM) {
         self.vm = vm
         super.init(nibName: nil, bundle: nil)
+        hidesBottomBarWhenPushed = true   // hide the tab bar so the bottom toolbar can host the favorite
     }
     required init?(coder: NSCoder) { fatalError() }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .paper
-        navigationItem.rightBarButtonItems = [heartButton, editButton]
+        navigationItem.rightBarButtonItem = editButton
+        toolbarItems = [.flexibleSpace(), heartButton, .flexibleSpace()]
         setupLayout()
         bind()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setToolbarHidden(false, animated: animated)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setToolbarHidden(true, animated: animated)
     }
 
     private func setupLayout() {

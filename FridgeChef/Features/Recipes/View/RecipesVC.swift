@@ -67,6 +67,7 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .clear
+        collectionView.accessibilityIdentifier = "recipes.list"
         collectionView.delegate = self
         collectionView.register(RecipesBatchCell.self, forCellWithReuseIdentifier: RecipesBatchCell.reuseID)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -87,8 +88,9 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
             let title = identifiers[indexPath.section]
             var content = header.defaultContentConfiguration()
             content.text = title
-            content.textProperties.font = Typography.dmSans(12, weight: .medium)
+            content.textProperties.font = Typography.dmSans(11, weight: .medium)
             content.textProperties.color = .inkSoft
+            content.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 20, leading: 0, bottom: 6, trailing: 0)
             header.contentConfiguration = content
         }
 
@@ -113,10 +115,18 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
             let emptySnap = NSDiffableDataSourceSnapshot<String, RecipeBatch>()
             dataSource.apply(emptySnap, animatingDifferences: false)
             var config = UIContentUnavailableConfiguration.empty()
+            let iconCfg = UIImage.SymbolConfiguration(pointSize: 52, weight: .thin)
+            config.image = UIImage(systemName: vm.filter == .favorites
+                ? "heart.circle" : "fork.knife.circle", withConfiguration: iconCfg)
+            config.imageProperties.tintColor = .inkSoft
             config.text = vm.filter == .favorites ? "No favorites yet" : "No recipes yet"
+            config.textProperties.font = Typography.fraunces(20, weight: .bold)
+            config.textProperties.color = .ink
             config.secondaryText = vm.filter == .favorites
                 ? "Tap the heart on a recipe to favorite it."
                 : "Tap + to add one, or generate from Home."
+            config.secondaryTextProperties.font = Typography.dmSans(15)
+            config.secondaryTextProperties.color = .inkSoft
             contentUnavailableConfiguration = config
             return
         }
@@ -164,7 +174,14 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
         guard let batch = batch(at: indexPath) else { return }
-        let batchVM = RecipeBatchVM(batch: batch, store: vm.store)
-        navigationController?.pushViewController(RecipeBatchVC(vm: batchVM), animated: true)
+        // A recipe you created is a single-recipe batch — skip the batch screen
+        // and open its detail directly, so Edit is one tap away.
+        if batch.source == .user, batch.recipes.count == 1 {
+            let detailVM = RecipeDetailVM(recipe: batch.recipes[0], batchId: batch.id, store: vm.store)
+            navigationController?.pushViewController(RecipeDetailVC(vm: detailVM), animated: true)
+        } else {
+            let batchVM = RecipeBatchVM(batch: batch, store: vm.store)
+            navigationController?.pushViewController(RecipeBatchVC(vm: batchVM), animated: true)
+        }
     }
 }

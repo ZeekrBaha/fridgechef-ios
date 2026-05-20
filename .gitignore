@@ -37,6 +37,7 @@ Pods/
 # Editors
 .vscode/
 .idea/
+.claude/
 
 # Secrets — never commit raw .env or local xcconfigs
 *.xcconfig.local
