@@ -155,6 +155,46 @@ final class SmokeTests: XCTestCase {
                       "Recipe detail should show the updated title after edit")
     }
 
+    func test_delete_recipe_fromEditForm() {
+        let app = launch()
+        app.tabBars.buttons["Recipes"].tap()
+
+        // Create a recipe
+        app.navigationBars["Recipes"].buttons["recipes.create.button"].tap()
+        let titleField = app.textFields["create.title.field"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 3))
+        titleField.tap(); titleField.typeText("Trash Me")
+        app.textFields["create.ingredient.row.0.field"].tap()
+        app.textFields["create.ingredient.row.0.field"].typeText("Ingredient")
+        app.textFields["create.step.row.0.field"].tap()
+        app.textFields["create.step.row.0.field"].typeText("Step")
+        app.buttons["create.save.button"].tap()
+        XCTAssertTrue(app.staticTexts["Trash Me"].waitForExistence(timeout: 5))
+
+        // Open it (single user recipe → detail directly) → Edit
+        app.staticTexts["Trash Me"].firstMatch.tap()
+        let editButton = app.buttons["detail.edit.button"]
+        XCTAssertTrue(editButton.waitForExistence(timeout: 3))
+        editButton.tap()
+
+        // Delete from the bottom of the Edit form
+        let deleteButton = app.buttons["create.delete.button"]
+        XCTAssertTrue(deleteButton.waitForExistence(timeout: 3))
+        if !deleteButton.isHittable { app.swipeUp() }
+        deleteButton.tap()
+
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 3))
+        alert.buttons["Delete"].tap()
+
+        // Back on the list, the recipe is gone
+        XCTAssertTrue(app.navigationBars["Recipes"].waitForExistence(timeout: 5))
+        let gone = app.staticTexts["Trash Me"]
+        let exp = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: gone)
+        wait(for: [exp], timeout: 5)
+        XCTAssertFalse(gone.exists, "Deleted recipe should no longer appear in the list")
+    }
+
     func test_delete_batch_removesFromList() {
         let app = launch()
         app.tabBars.buttons["Recipes"].tap()

@@ -91,6 +91,19 @@ final class CreateEditRecipeVM {
         steps.remove(at: index)
     }
 
+    /// Delete the recipe being edited. No-op in `.new` mode.
+    /// Returns true on success so the VC can pop back to the list.
+    func delete() async -> Bool {
+        guard case .edit(let existing, _) = mode else { return false }
+        do {
+            try await store.delete(recipeId: existing.id)
+            return true
+        } catch {
+            saveState = .error(error.localizedDescription)
+            return false
+        }
+    }
+
     func save() async {
         guard saveState != .saving else { return }
         saveState = .saving

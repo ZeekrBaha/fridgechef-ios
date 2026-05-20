@@ -233,10 +233,11 @@ The favorite lives **on the Recipes list row**, not the detail screen. The heart
 
 ### 3.10 Flow J — delete
 
-Three entry points, all converging on `RecipeStore` deletes that post `.recipesDidChange`:
+Four entry points, all converging on `RecipeStore` deletes that post `.recipesDidChange`:
 
 | Entry point | Call | Scope |
 |---|---|---|
+| "Delete Recipe" button at the bottom of the Edit form (confirm alert) | `RecipeStore.delete(recipeId:)` | One recipe; on success the VC `popToRootViewController` (the detail/batch behind it are now stale). The primary, discoverable delete — mirrors create/edit which are also explicit buttons |
 | Swipe a row in `RecipesVC` → Delete (confirm alert) | `RecipeStore.delete(batchId:)` | Whole batch |
 | Swipe a card in `RecipeBatchVC` → Delete (confirm alert) | `RecipeStore.delete(recipeId:)` | One recipe; if it was the batch's last recipe, the batch is removed and `RecipeBatchVM` transitions to `.gone` → VC pops |
 | Settings → "Clear all recipes" (confirm "Clear all") | `RecipeStore.deleteAll()` | Everything |
@@ -434,6 +435,8 @@ Scrollable vertical form inside a `UIScrollView`. `Mode.new` (blank) or `Mode.ed
 
 Field cards: `paper2` background, 12pt corner. Cancel with unsaved edits → "Discard changes?" confirm. Save shows a "Couldn't save" alert on store error.
 
+In **edit mode only**, a destructive **"Delete Recipe"** button (trash icon + label, `terracotta`, centered) sits at the bottom of the form (Contacts-style). Tap → "Delete this recipe?" confirm → `delete()` → on success `popToRootViewController`. Not shown in `.new` mode.
+
 ### 5.10 `RecipeDetail` action placement
 
 - **Edit** — single trailing nav-bar button (text, system tint); the only nav-bar control (per HIG). The tab bar stays visible.
@@ -482,7 +485,7 @@ Five generation entry points all converge on `private func run(_ fetch: @escapin
    ↓ pop VC          ↓ alert; Save re-enabled if still valid
 ```
 
-Separately, `isValid` is a derived `@Published` (CombineLatest3 of title / ingredients / steps) driving the Save button's enabled state. `hasUnsavedChanges` compares the current field snapshot to the initial snapshot for the Cancel-confirm prompt.
+Separately, `isValid` is a derived `@Published` (CombineLatest3 of title / ingredients / steps) driving the Save button's enabled state. `hasUnsavedChanges` compares the current field snapshot to the initial snapshot for the Cancel-confirm prompt. `delete()` (edit mode only) removes the recipe via `RecipeStore.delete(recipeId:)` and returns success so the VC can pop to root.
 
 ### 6.4 `RecipeBatchVM.BatchState`
 
@@ -801,7 +804,7 @@ Adapt this to the target platform's idioms:
 
 ## 13. Test coverage targets
 
-A port should match the iOS test count (**75 total — 67 unit + 8 UI**) shape, not the exact assertions:
+A port should match the iOS test count (**76 total — 67 unit + 9 UI**) shape, not the exact assertions:
 
 | Layer | Tests |
 |---|---|
@@ -817,7 +820,7 @@ A port should match the iOS test count (**75 total — 67 unit + 8 UI**) shape, 
 | `SettingsVM` | 4 |
 | `ThemeManager` (custom prefs) | 4 |
 | `APIKeyProvider` (custom bundle) | 3 |
-| Smoke / UI (XCUITest) | 8 — catalog cards present, recipes empty state, theme toggle, create button opens form, save-button enablement, created recipe appears, edit updates title, delete removes from list |
+| Smoke / UI (XCUITest) | 9 — catalog cards present, recipes empty state, theme toggle, create button opens form, save-button enablement, created recipe appears, edit updates title, delete from edit form, delete (clear-all) removes from list |
 
 Notes for porters:
 - The favorite toggle, filter, and cascade-delete behaviors each have dedicated VM/store tests — port them, they catch real regressions (e.g. cascade delete leaving orphan recipes, optimistic-toggle revert).

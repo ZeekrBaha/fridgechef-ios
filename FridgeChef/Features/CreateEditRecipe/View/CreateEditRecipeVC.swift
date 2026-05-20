@@ -157,6 +157,20 @@ final class CreateEditRecipeVC: UIViewController {
         let timeCard = makeFieldCard(timeField, minHeight: 52)
         formStack.addArrangedSubview(timeCard)
 
+        // DELETE (edit mode only) — Contacts-style destructive action at the bottom
+        if case .edit = vm.mode {
+            var config = UIButton.Configuration.plain()
+            config.title = "Delete Recipe"
+            config.image = UIImage(systemName: "trash")
+            config.imagePadding = 8
+            config.baseForegroundColor = .terracotta
+            let deleteButton = UIButton(configuration: config)
+            deleteButton.accessibilityIdentifier = "create.delete.button"
+            deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
+            formStack.setCustomSpacing(32, after: timeCard)
+            formStack.addArrangedSubview(deleteButton)
+        }
+
         // Populate
         titleField.text = vm.title
         descriptionView.text = vm.descriptionText
@@ -373,6 +387,23 @@ final class CreateEditRecipeVC: UIViewController {
 
     @objc private func saveTapped() {
         Task { await vm.save() }
+    }
+
+    @objc private func deleteTapped() {
+        let alert = UIAlertController(title: "Delete this recipe?",
+                                      message: "This can't be undone.",
+                                      preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            Task {
+                if await self?.vm.delete() == true {
+                    // The recipe (and possibly its batch) is gone; the detail/batch
+                    // screens behind us are now stale, so return to the list.
+                    self?.navigationController?.popToRootViewController(animated: true)
+                }
+            }
+        })
+        present(alert, animated: true)
     }
 
     // MARK: - Bindings
