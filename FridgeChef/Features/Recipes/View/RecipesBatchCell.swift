@@ -3,11 +3,14 @@ import UIKit
 final class RecipesBatchCell: UICollectionViewListCell {
     static let reuseID = "RecipesBatchCell"
 
-    private let accentBar  = UIView()
-    private let titleLabel = UILabel()
-    private let metaLabel  = UILabel()
-    private let tagsRow    = UIStackView()
-    private let heartIcon  = UIImageView()
+    private let accentBar   = UIView()
+    private let titleLabel  = UILabel()
+    private let metaLabel   = UILabel()
+    private let tagsRow     = UIStackView()
+    private let heartButton = UIButton(type: .system)
+
+    /// Called when the user taps the heart to favorite / unfavorite this batch.
+    var onToggleFavorite: (() -> Void)?
 
     private static let timeFmt: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "h:mm a"; return f
@@ -41,12 +44,11 @@ final class RecipesBatchCell: UICollectionViewListCell {
         tagsRow.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(tagsRow)
 
-        let cfg = UIImage.SymbolConfiguration(pointSize: 12, weight: .medium)
-        heartIcon.image = UIImage(systemName: "heart.fill", withConfiguration: cfg)
-        heartIcon.tintColor = .terracotta
-        heartIcon.contentMode = .scaleAspectFit
-        heartIcon.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(heartIcon)
+        heartButton.tintColor = .terracotta
+        heartButton.translatesAutoresizingMaskIntoConstraints = false
+        heartButton.accessibilityIdentifier = "recipes.favorite.button"
+        heartButton.addTarget(self, action: #selector(heartTapped), for: .touchUpInside)
+        contentView.addSubview(heartButton)
 
         NSLayoutConstraint.activate([
             accentBar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
@@ -56,12 +58,12 @@ final class RecipesBatchCell: UICollectionViewListCell {
 
             titleLabel.leadingAnchor.constraint(equalTo: accentBar.trailingAnchor, constant: 12),
             titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            titleLabel.trailingAnchor.constraint(equalTo: heartIcon.leadingAnchor, constant: -8),
+            titleLabel.trailingAnchor.constraint(equalTo: heartButton.leadingAnchor, constant: -4),
 
-            heartIcon.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            heartIcon.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            heartIcon.widthAnchor.constraint(equalToConstant: 14),
-            heartIcon.heightAnchor.constraint(equalToConstant: 14),
+            heartButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
+            heartButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            heartButton.widthAnchor.constraint(equalToConstant: 36),
+            heartButton.heightAnchor.constraint(equalToConstant: 36),
 
             metaLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             metaLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
@@ -93,7 +95,10 @@ final class RecipesBatchCell: UICollectionViewListCell {
         let count = batch.recipes.count
         metaLabel.text = "\(count) \(count == 1 ? "recipe" : "recipes") · \(Self.timeFmt.string(from: batch.createdAt))"
 
-        heartIcon.isHidden = !batch.recipes.contains(where: \.isFavorite)
+        let isFav = !batch.recipes.isEmpty && batch.recipes.allSatisfy(\.isFavorite)
+        let heartCfg = UIImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        heartButton.setImage(UIImage(systemName: isFav ? "heart.fill" : "heart", withConfiguration: heartCfg), for: .normal)
+        heartButton.accessibilityLabel = isFav ? "Unfavorite recipe" : "Favorite recipe"
 
         let chipSource = isSingleUserRecipe ? batch.recipes[0].ingredients : batch.recipes.map(\.title)
         tagsRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -107,6 +112,13 @@ final class RecipesBatchCell: UICollectionViewListCell {
         var bg = UIBackgroundConfiguration.listGroupedCell()
         bg.backgroundColor = .paper2
         backgroundConfiguration = bg
+    }
+
+    @objc private func heartTapped() { onToggleFavorite?() }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        onToggleFavorite = nil
     }
 
     private func makeChip(_ text: String) -> UIView {

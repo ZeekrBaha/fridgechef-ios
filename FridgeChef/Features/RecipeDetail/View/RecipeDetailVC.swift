@@ -7,14 +7,6 @@ final class RecipeDetailVC: UIViewController {
     private let contentStack = UIStackView()
     private var cancellables = Set<AnyCancellable>()
 
-    private lazy var heartButton: UIBarButtonItem = {
-        let b = UIBarButtonItem(image: UIImage(systemName: "heart"),
-                                style: .plain, target: self, action: #selector(heartTapped))
-        b.tintColor = .terracotta
-        b.accessibilityIdentifier = "detail.favorite.button"
-        return b
-    }()
-
     private lazy var editButton: UIBarButtonItem = {
         let b = UIBarButtonItem(title: "Edit", style: .plain,
                                 target: self, action: #selector(editTapped))
@@ -25,7 +17,6 @@ final class RecipeDetailVC: UIViewController {
     init(vm: RecipeDetailVM) {
         self.vm = vm
         super.init(nibName: nil, bundle: nil)
-        hidesBottomBarWhenPushed = true   // hide the tab bar so the bottom toolbar can host the favorite
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -33,19 +24,8 @@ final class RecipeDetailVC: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .paper
         navigationItem.rightBarButtonItem = editButton
-        toolbarItems = [.flexibleSpace(), heartButton, .flexibleSpace()]
         setupLayout()
         bind()
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        navigationController?.setToolbarHidden(false, animated: animated)
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        navigationController?.setToolbarHidden(true, animated: animated)
     }
 
     private func setupLayout() {
@@ -78,25 +58,6 @@ final class RecipeDetailVC: UIViewController {
         vm.$recipe
             .sink { [weak self] in self?.rebuildContent(with: $0) }
             .store(in: &cancellables)
-
-        vm.$isFavorite
-            .sink { [weak self] fav in
-                self?.heartButton.image = UIImage(systemName: fav ? "heart.fill" : "heart")
-                self?.heartButton.accessibilityLabel = fav ? "Unfavorite" : "Favorite"
-            }
-            .store(in: &cancellables)
-
-        vm.$lastError
-            .compactMap { $0 }
-            .sink { [weak self] msg in
-                let alert = UIAlertController(title: "Couldn't save favorite",
-                                              message: msg, preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                    self?.vm.clearError()
-                })
-                self?.present(alert, animated: true)
-            }
-            .store(in: &cancellables)
     }
 
     private func rebuildContent(with recipe: Recipe) {
@@ -127,10 +88,6 @@ final class RecipeDetailVC: UIViewController {
         for (idx, step) in recipe.steps.enumerated() {
             contentStack.addArrangedSubview(makeBullet("\(idx + 1). \(step)"))
         }
-    }
-
-    @objc private func heartTapped() {
-        Task { await vm.toggleFavorite() }
     }
 
     @objc private func editTapped() {

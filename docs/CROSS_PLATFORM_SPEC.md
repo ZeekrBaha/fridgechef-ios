@@ -23,7 +23,7 @@ The **Recipes tab is a full personal cookbook**, not just AI history:
 
 - **Create** a recipe from scratch (`+` button → `CreateEditRecipe` form). A user-created recipe is stored as a single-recipe batch with `source = .user`.
 - **Edit** any recipe (AI or user) via the Edit button on `RecipeDetail`.
-- **Favorite / unfavorite** individual recipes (heart toggle on `RecipeDetail`).
+- **Favorite / unfavorite** recipes by tapping the heart on each Recipes list row (no need to open the recipe).
 - **Filter** the list with an All / Favorites segmented control.
 - **Delete**: swipe a batch row in Recipes, swipe a recipe card in `RecipeBatch`, or "Clear all recipes" in Settings.
 
@@ -61,12 +61,12 @@ flowchart LR
     Recipes -->|tap AI batch row| Batch
     Recipes -->|tap single user-recipe row| Detail
     Recipes -->|tap + button| CreateEdit[CreateEditRecipeVC<br/>new]
+    Recipes -->|tap heart on row| Recipes
     Recipes -->|All / Favorites filter| Recipes
     Recipes -->|swipe row → Delete| Recipes
     CreateEdit -->|save| Recipes
 
     Detail -->|tap Edit| CreateEdit2[CreateEditRecipeVC<br/>edit]
-    Detail -->|tap heart| Detail
     CreateEdit2 -->|save| Detail
 
     Settings -->|theme picker| Settings
@@ -210,24 +210,22 @@ sequenceDiagram
 
 Editing mutates the recipe in place (same `id`), preserving its `isFavorite`. Works for both AI-generated and user recipes.
 
-### 3.8 Flow H — favorite / unfavorite
+### 3.8 Flow H — favorite / unfavorite (from the list row)
 
 ```mermaid
 sequenceDiagram
     actor User
-    User->>RecipeDetailVC: tap heart (bottom toolbar)
-    RecipeDetailVC->>RecipeDetailVM: toggleFavorite()
-    RecipeDetailVM->>RecipeDetailVM: isFavorite.toggle()  (optimistic)
-    RecipeDetailVM->>RecipeStore: setFavorite(recipeId, isFavorite)
-    alt success
+    User->>RecipesVC: tap heart on a recipe row
+    RecipesVC->>RecipesVM: toggleFavorite(batchId:)
+    RecipesVM->>RecipesVM: newValue = !(all recipes in batch favorited)
+    loop each recipe in batch
+        RecipesVM->>RecipeStore: setFavorite(recipeId, newValue)
         RecipeStore-->>NotificationCenter: post .recipesDidChange
-    else error
-        RecipeDetailVM->>RecipeDetailVM: revert isFavorite; emit lastError
-        RecipeDetailVC->>User: error alert
     end
+    NotificationCenter-->>RecipesVM: reload → row heart updates
 ```
 
-The toggle is **optimistic**: the heart flips immediately, then reverts only if the store write fails. Heart icon: `heart` (outline) ↔ `heart.fill`, tinted `terracotta`.
+The favorite lives **on the Recipes list row**, not the detail screen. The heart is an interactive button: `heart` (outline) when not all of the batch's recipes are favorited, `heart.fill` when all are, tinted `terracotta`. Tapping flips every recipe in the batch (for a single-recipe user batch, that's just the one). Favorited batches then appear under the Favorites filter (§3.9).
 
 ### 3.9 Flow I — filter All / Favorites
 
@@ -407,7 +405,7 @@ The row in the Recipes tab. A grouped-list cell (iOS `insetGrouped`), background
 | Accent strip | 3pt-wide vertical bar, 1.5pt corner, inset 16pt from leading; **`terracotta` if `source == .user`, `sage` if `.ai`** |
 | Title | Fraunces 17 bold, `ink`, max 2 lines. Single-recipe user batch → the recipe's name; AI batch with a query → the joined `inputIngredients`; otherwise "Your recipes" / "Generated recipes" |
 | Meta line | DM Sans 12, `inkSoft`: `"<N> recipe(s) · <h:mm a>"` |
-| Favorite heart | `heart.fill` SF Symbol, 12pt, `terracotta`, trailing; shown only if any recipe in the batch is favorited |
+| Favorite button | **Interactive** `heart` (outline) ↔ `heart.fill`, 18pt icon in a 36pt tap target, `terracotta`, trailing-top. Filled when all the batch's recipes are favorited. Tap toggles favorite via `RecipesVM.toggleFavorite(batchId:)` — favoriting happens from the list, no need to open the recipe |
 | Chips | Up to 3 pills + a `+N` overflow pill. DM Sans 11 medium, `inkSoft`, background `ink @ 7%`, 8pt corner. Single-recipe user batch → the recipe's ingredients; otherwise the recipe names |
 
 Tap behavior (see §3): single-recipe `.user` batch → push `RecipeDetailVC` directly; otherwise → push `RecipeBatchVC`.
@@ -438,8 +436,8 @@ Field cards: `paper2` background, 12pt corner. Cancel with unsaved edits → "Di
 
 ### 5.10 `RecipeDetail` action placement
 
-- **Edit** — single trailing nav-bar button (text, system tint). The only nav-bar content control (per HIG).
-- **Favorite** — heart in a **bottom toolbar** (`heart` ↔ `heart.fill`, `terracotta`), centered. The tab bar is hidden while a recipe is open (`hidesBottomBarWhenPushed`), matching Photos/News. Port equivalents: Android bottom app bar / `BottomAppBar` action; Flutter `BottomAppBar`; RN a bottom action bar with the tab bar hidden on the detail route.
+- **Edit** — single trailing nav-bar button (text, system tint); the only nav-bar control (per HIG). The tab bar stays visible.
+- **Favorite** — *not on this screen.* Favoriting is done from the Recipes list row (§5.7), so the detail page carries no heart. (`RecipeDetailVM` still exposes `toggleFavorite`/`isFavorite` for tests and possible reuse, but no detail UI binds them.)
 
 ---
 
@@ -496,10 +494,11 @@ Separately, `isValid` is a derived `@Published` (CombineLatest3 of title / ingre
 
 After any `deleteRecipe`, the VM re-fetches the batch by id; if it no longer exists (cascade removed it), it transitions to `.gone`. This sentinel avoids a crash when the navigated-into batch disappears underneath the screen.
 
-### 6.5 `RecipesVM.Filter` and `RecipeDetailVM`
+### 6.5 `RecipesVM` (filter + favorite) and `RecipeDetailVM`
 
 - `RecipesVM.filter`: `.all` / `.favorites`. `visibleGroups = CombineLatest(groups, filter)` — Favorites trims each batch to only its favorited recipes and drops empty batches. Reloads on `.recipesDidChange`.
-- `RecipeDetailVM`: `@Published isFavorite` (optimistic toggle with revert on error, §3.8) + `@Published recipe` that reloads from the store on `.recipesDidChange` (so an edit reflects immediately). `lastError` drives a one-shot alert.
+- `RecipesVM.toggleFavorite(batchId:)`: flips every recipe in the batch to the opposite of "all favorited" — drives the list-row heart (§3.8).
+- `RecipeDetailVM`: `@Published recipe` reloads from the store on `.recipesDidChange` (so an edit reflects immediately). It also exposes `toggleFavorite`/`isFavorite` (optimistic with revert) retained for tests, though no detail UI currently binds them.
 
 ---
 
@@ -515,7 +514,7 @@ Every iconographic element is an Apple SF Symbol. None are bundled as images. Ni
 | Magic button | `sparkles` | `auto_awesome` | `sparkles` | Filled-style on terracotta circle |
 | Loading overlay | `frying.pan.fill` (fallback `fork.knife`) | `outdoor_grill` / `restaurant` | `cooking-pot` / `chef-hat` | Kitchen-themed |
 | Recipes create | `plus` (nav bar `.add`) | `add` | `plus` | Opens CreateEditRecipe (new) |
-| Favorite toggle | `heart` ↔ `heart.fill` | `favorite_border` ↔ `favorite` | `heart` | `terracotta`; detail toolbar + batch-row badge |
+| Favorite toggle | `heart` ↔ `heart.fill` | `favorite_border` ↔ `favorite` | `heart` | `terracotta`; interactive button on each Recipes list row |
 | Remove form row | `minus.circle.fill` | `remove_circle` | `minus-circle` | `terracotta`; ingredient/step row delete |
 | Empty state | `fork.knife.circle` / `heart.circle` | `restaurant` / `favorite_border` | `utensils` / `heart` | 52pt thin, `inkSoft` |
 
@@ -848,7 +847,7 @@ Notes for porters:
 - Cooking-themed loading icon — `frying.pan.fill` is iOS-only. Material has `outdoor_grill`, Lucide has `cooking-pot`. The animation (1.6s continuous rotation) translates directly.
 - Tab bar vs bottom nav vs nav rail — iOS uses 3-tab `UITabBarController`. Android Compose: `NavigationBar`. Flutter: `BottomNavigationBar`. RN: `@react-navigation/bottom-tabs`.
 - Modal vs full-screen photo picker — match the platform convention.
-- Favorite placement on the recipe detail — iOS puts the heart in a **bottom toolbar** and hides the tab bar on the leaf screen (Photos/News convention; nav bar keeps only Edit). Map to the platform's leaf-screen idiom: Android can hide the bottom nav and use a `BottomAppBar` or a top-app-bar action; Flutter a `BottomAppBar` with the nav bar hidden on the route; RN a bottom action bar with the tab bar hidden for the detail route. Avoid two competing actions in the top bar.
+- Favorite placement — the heart is an **interactive button on each Recipes list row** (outline → tap → fill → the recipe appears under Favorites), not on the detail screen. This keeps favoriting one tap away from the list. Map to the platform's list-item action idiom (a trailing icon button in the row); the detail screen carries only Edit. (Earlier iterations tried the heart in the detail nav bar and then a detail bottom toolbar — both were rejected in favor of the list-row toggle.)
 
 ---
 

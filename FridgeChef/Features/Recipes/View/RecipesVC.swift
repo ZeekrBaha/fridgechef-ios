@@ -94,9 +94,12 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
             header.contentConfiguration = content
         }
 
-        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { cv, ip, batch in
+        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { [weak self] cv, ip, batch in
             let cell = cv.dequeueReusableCell(withReuseIdentifier: RecipesBatchCell.reuseID, for: ip) as! RecipesBatchCell
             cell.configure(with: batch)
+            cell.onToggleFavorite = {
+                Task { await self?.vm.toggleFavorite(batchId: batch.id) }
+            }
             return cell
         }
         dataSource.supplementaryViewProvider = { cv, _, ip in

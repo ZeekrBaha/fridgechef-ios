@@ -52,6 +52,18 @@ final class RecipesVM {
         }
     }
 
+    /// Toggle the favorite state for a batch's recipe(s) directly from the list.
+    /// Filled (favorited) means every recipe in the batch is favorited; tapping
+    /// flips all recipes to the opposite state. The store posts `.recipesDidChange`,
+    /// which reloads the list and updates the heart.
+    func toggleFavorite(batchId: UUID) async {
+        guard let batch = groups.flatMap(\.items).first(where: { $0.id == batchId }) else { return }
+        let newValue = !batch.recipes.allSatisfy(\.isFavorite)
+        for recipe in batch.recipes {
+            try? await store.setFavorite(recipeId: recipe.id, isFavorite: newValue)
+        }
+    }
+
     static func apply(filter: Filter, to groups: [Group]) -> [Group] {
         switch filter {
         case .all: return groups
