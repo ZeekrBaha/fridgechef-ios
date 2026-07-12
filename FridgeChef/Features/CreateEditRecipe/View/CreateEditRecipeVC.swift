@@ -30,6 +30,10 @@ final class CreateEditRecipeVC: UIViewController {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .paper
@@ -44,6 +48,31 @@ final class CreateEditRecipeVC: UIViewController {
         setupScroll()
         buildForm()
         bind()
+        observeKeyboard()
+    }
+
+    // MARK: - Keyboard avoidance
+
+    private func observeKeyboard() {
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(keyboardWillChangeFrame(_:)),
+            name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(keyboardWillHide(_:)),
+            name: UIResponder.keyboardWillHideNotification, object: nil)
+    }
+
+    @objc private func keyboardWillChangeFrame(_ note: Notification) {
+        guard let endFrame = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
+        else { return }
+        let overlap = max(0, view.bounds.maxY - view.convert(endFrame, from: nil).minY - view.safeAreaInsets.bottom)
+        scrollView.contentInset.bottom = overlap
+        scrollView.verticalScrollIndicatorInsets.bottom = overlap
+    }
+
+    @objc private func keyboardWillHide(_ note: Notification) {
+        scrollView.contentInset.bottom = 0
+        scrollView.verticalScrollIndicatorInsets.bottom = 0
     }
 
     // MARK: - Layout
