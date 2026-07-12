@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_FILE="$HOME/Desktop/llm-ai-projects/youtube_pdf_reporter/.env"
+ENV_FILE="${FRIDGECHEF_ENV_FILE:-$HOME/Desktop/llm-ai-projects/youtube_pdf_reporter/.env}"
 INFO_PLIST="$BUILT_PRODUCTS_DIR/$INFOPLIST_PATH"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "error: $ENV_FILE not found — cannot inject OPENAI_API_KEY" >&2
+  echo "hint: set FRIDGECHEF_ENV_FILE to point at a .env containing OPENAI_API_KEY=..." >&2
   exit 1
 fi
 
