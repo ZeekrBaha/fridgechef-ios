@@ -228,7 +228,7 @@ Ported from [Spend·book](../personal-finance-tracker-ios) with dark-mode varian
 
 - Xcode 16+
 - Homebrew (for XcodeGen)
-- An `OPENAI_API_KEY` line in `~/Desktop/llm-ai-projects/youtube_pdf_reporter/.env`
+- An `OPENAI_API_KEY` line in `~/Desktop/llm-ai-projects/youtube_pdf_reporter/.env` (default), or set `FRIDGECHEF_ENV_FILE=/path/to/your/.env` to point at any `.env` containing that key
 
 ### From clone to running app
 
@@ -255,7 +255,7 @@ The Run Script Phase reads the `.env` file at build time and bakes `OPENAI_API_K
 
 | Approach | Trade-off |
 |---|---|
-| **Build script reads sibling repo's .env** (chosen) | Zero manual steps; only works on this laptop |
+| **Build script reads sibling repo's .env** (chosen) | Zero manual steps on this laptop; `FRIDGECHEF_ENV_FILE` env var overrides the path for anyone else |
 | Setup sheet → Keychain on first launch | Portable; requires user to paste key |
 | Hardcoded in source | Don't |
 | Tiny proxy backend | Safest; adds infra |
@@ -276,11 +276,18 @@ xcodebuild -project FridgeChef.xcodeproj -scheme FridgeChef \
 | APIKeyProvider | XCTest with custom `Bundle` | present / missing / empty |
 | ThemeManager | XCTest with custom `UserDefaults` | default / light / dark / style mapping |
 | CreateEditRecipeVM | XCTest | validation (title required) · save new · update existing · add/remove rows |
-| UI smoke | XCUITest with launch-arg stub injection | 4 (catalog cards present · + opens create form · recipes empty state · theme toggle) |
+| UI smoke | XCUITest with launch-arg stub injection | 9 (catalog cards present · + opens create form · recipes empty state · theme toggle · create recipe appears in list · save button gating · delete batch · delete from edit form · edit title) |
 
-**Total:** 68 unit tests + 4 UI smoke = **72 tests.**
+**77 tests pass** (68 unit + 9 UI) — verified with a real `xcodebuild test` run on a booted simulator.
+
+**Known simulator caveat:** the iOS **18.0** GM simulator runtime (`22A3351`, shipped with Xcode 16.0) has an Apple/XCTest tooling bug where `XCTAutomationSupport`'s `os_log` fault handler segfaults (`EXC_BAD_ACCESS` in `AddFontsFromURLOrPath` / `runtime_issue_os_log_fault_callback`) on the very first UI-test launch, killing every `XCUITest` in the run — unrelated to this app's code (confirmed: still crashes with the app's custom fonts stripped from `Info.plist`). Unit tests are unaffected. Run UI tests on a newer simulator runtime (iOS 18.1+, or the iOS 26.x line) or a different iPhone model to avoid it; CI intentionally does not pin an OS version so it picks up whatever runtime ships with the runner's Xcode.
 
 The end-to-end catalog → generate → push flow is exercised by `CatalogVMTests` + `RecipeBatchVMTests` rather than XCUITest, because keyboard timing and navigation animations make the XCUITest version flaky in simulator.
+
+### Lint / CI
+
+- `SwiftLint` (`.swiftlint.yml`) — `min_length: 1` for identifiers (matches existing short-name conventions like `vm`/`cv`), `trailing_comma` disabled, `type_body_length`/`line_length` thresholds bumped slightly to fit existing files. Run: `swiftlint lint FridgeChef`.
+- `.github/workflows/ci.yml` — GitHub Actions (macOS runner): `xcodegen generate` → `swiftlint lint` → `xcodebuild test`, on every push/PR.
 
 ### Pre-commit secret-scan hook
 
