@@ -62,6 +62,8 @@ final class RecipeBatchVC: UIViewController, UICollectionViewDelegate {
         ])
 
         dataSource = UICollectionViewDiffableDataSource<Int, Recipe>(collectionView: collectionView) { cv, ip, recipe in
+            // Safe: RecipeBatchCardCell is registered for this reuseID; a mismatch is a programmer error.
+            // swiftlint:disable:next force_cast
             let cell = cv.dequeueReusableCell(withReuseIdentifier: RecipeBatchCardCell.reuseID, for: ip) as! RecipeBatchCardCell
             cell.configure(with: recipe)
             return cell

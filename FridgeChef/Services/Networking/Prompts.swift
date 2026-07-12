@@ -1,3 +1,5 @@
+// swiftlint:disable line_length
+// Long lines below are single-line LLM prompt strings; wrapping them would hurt readability/diffability.
 import Foundation
 
 enum Prompts {
@@ -29,3 +31,4 @@ enum Prompts {
     You are a cooking assistant. Suggest one specific recipe title (just the title, no description) for each meal type today: breakfast, lunch, and dinner. Pick recipes that are interesting but achievable in a normal home kitchen. Titles should be short and concrete — for example: "Avocado toast with poached egg" not "A delicious breakfast option". Return JSON with keys breakfast, lunch, dinner.
     """
 }
+// swiftlint:enable line_length

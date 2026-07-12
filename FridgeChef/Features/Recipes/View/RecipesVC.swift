@@ -95,6 +95,8 @@ final class RecipesVC: UIViewController, UICollectionViewDelegate {
         }
 
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { [weak self] cv, ip, batch in
+            // Safe: RecipesBatchCell is registered for this reuseID; a mismatch is a programmer error.
+            // swiftlint:disable:next force_cast
             let cell = cv.dequeueReusableCell(withReuseIdentifier: RecipesBatchCell.reuseID, for: ip) as! RecipesBatchCell
             cell.configure(with: batch)
             cell.onToggleFavorite = {

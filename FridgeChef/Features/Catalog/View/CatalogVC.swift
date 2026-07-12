@@ -175,6 +175,8 @@ final class CatalogVC: UIViewController {
         dataSource = UICollectionViewDiffableDataSource<Int, Card>(
             collectionView: collectionView
         ) { [weak self] cv, indexPath, card in
+            // Safe: CategoryCardCell is registered for this reuseID below; a mismatch is a programmer error.
+            // swiftlint:disable:next force_cast
             let cell = cv.dequeueReusableCell(withReuseIdentifier: CategoryCardCell.reuseID, for: indexPath) as! CategoryCardCell
             switch card {
             case .meal(let meal):
