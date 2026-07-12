@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: SwiftLint
+        run: brew install swiftlint && swiftlint lint FridgeChef
+      - name: Write placeholder .env for build-time key injection
+        run: echo "OPENAI_API_KEY=ci-placeholder-not-a-real-key" > "$RUNNER_TEMP/.env"
+      - name: Build and test
+        env:
+          FRIDGECHEF_ENV_FILE: ${{ runner.temp }}/.env
+        run: |
+          xcodebuild test \
+            -project FridgeChef.xcodeproj \
+            -scheme FridgeChef \
+            -destination 'platform=iOS Simulator,name=iPhone 16'
